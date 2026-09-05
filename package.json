@@ -1,0 +1,13 @@
+{
+  "name": "eventhub",
+  "private": true,
+  "version": "1.0.0",
+  "description": "EventHub - Tech Conference & Event Management Platform (Code A Nova Internship, Task 5)",
+  "scripts": {
+    "dev": "concurrently -n SERVER,CLIENT -c blue,green \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "install:all": "npm install --prefix server && npm install --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
