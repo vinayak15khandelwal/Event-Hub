@@ -1,26 +1,48 @@
-import { useEffect, useState } from "react";
-import api from "./api/axios";
+import { useEffect } from "react";
+import { Routes, Route } from "react-router-dom";
+import useAuthStore from "./store/authStore";
+import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Home from "./pages/Home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import AttendeeDashboard from "./pages/AttendeeDashboard";
+import OrganizerDashboard from "./pages/OrganizerDashboard";
 
 function App() {
-  const [status, setStatus] = useState("checking...");
+  const checkAuth = useAuthStore((s) => s.checkAuth);
 
+  // On app load, ask the backend if the httpOnly cookie still represents
+  // a valid session - the token itself is never readable from JS.
   useEffect(() => {
-    api
-      .get("/health")
-      .then((res) => setStatus(res.data.message))
-      .catch(() => setStatus("Backend unreachable — is the server running?"));
-  }, []);
+    checkAuth();
+  }, [checkAuth]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-100">
-      <div className="text-center space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight">EventHub</h1>
-        <p className="text-sm text-slate-400">Day 1 — monorepo wiring check</p>
-        <p className="mt-4 rounded-md bg-slate-800 px-4 py-2 font-mono text-sm">
-          API status: {status}
-        </p>
-      </div>
-    </div>
+    <>
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route
+          path="/attendee"
+          element={
+            <ProtectedRoute roles={["attendee"]}>
+              <AttendeeDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organizer"
+          element={
+            <ProtectedRoute roles={["organizer"]}>
+              <OrganizerDashboard />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </>
   );
 }
 

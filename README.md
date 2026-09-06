@@ -9,7 +9,7 @@ Code A Nova Full Stack Development internship.
 - [x] Express backend scaffolded
 - [x] MongoDB Atlas connection wired up
 - [x] Health-check route (`GET /api/health`) proving frontend ↔ backend ↔ DB
-- [ ] Auth system (Day 2)
+- [x] Auth system (Day 2)
 - [ ] Event management (Day 3)
 - [ ] Seat selection + real-time availability (Day 4)
 - [ ] Ticket booking + QR generation (Day 5)
@@ -81,6 +81,15 @@ npm run dev
 ```
 - Frontend: http://localhost:5173
 - Backend: http://localhost:5000/api/health
+
+## Auth System (Day 2)
+
+- **Registration**: `POST /api/auth/register` — role is selected client-side (attendee/organizer) but the server ignores anything outside that enum and defaults to `attendee`, so a client can never grant itself elevated access.
+- **Login**: `POST /api/auth/login` — verifies against a bcrypt hash (10 salt rounds), never stores or logs plaintext.
+- **Session**: JWT is set as an `httpOnly` cookie (not readable by JS, mitigates XSS token theft) and also returned in the response body for non-browser API clients.
+- **`protect` middleware**: verifies the JWT server-side on every protected route and re-fetches the user from the DB (so a deleted user's old token stops working immediately).
+- **`authorize(...roles)` middleware**: role guard used after `protect` — e.g. `router.post("/events", protect, authorize("organizer"), createEvent)`. This is the exact pattern Day 3's organizer-only event routes will use.
+- **Client**: Zustand `authStore` calls `/api/auth/me` on load to restore session state (since the cookie itself isn't readable), plus `ProtectedRoute` for route-level guarding and role-based nav in `Navbar`.
 
 ## Data Model
 

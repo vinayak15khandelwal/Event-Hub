@@ -1,8 +1,10 @@
 import dns from "node:dns";
 import mongoose from "mongoose";
 
-// Use public DNS resolvers for MongoDB SRV lookups.
-// This avoids the local DNS resolver issue encountered on this machine.
+// Some networks (notably certain Windows/router setups) can't complete the
+// SRV/TXT DNS lookups that mongodb+srv:// depends on via Node's default
+// resolver. Pointing at a public resolver fixes it without touching the
+// connection string. See Day 1 troubleshooting notes in the README.
 dns.setServers(["8.8.8.8", "1.1.1.1"]);
 
 const connectDB = async () => {
