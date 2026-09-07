@@ -105,13 +105,23 @@ describe("Protected routes", () => {
 });
 
 describe("Role-based guard (authorize middleware)", () => {
+  const samplePayload = {
+    name: "Sample Conf",
+    category: "web-dev",
+    date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+    venue: "Test Hall",
+    capacity: 100,
+    priceTiers: [{ name: "General", price: 500, quantity: 100 }],
+  };
+
   it("blocks an attendee from an organizer-only route", async () => {
     const registerRes = await request(app).post("/api/auth/register").send(attendeePayload);
     const { token } = registerRes.body;
 
     const res = await request(app)
-      .get("/api/organizer-only-demo")
-      .set("Authorization", `Bearer ${token}`);
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send(samplePayload);
 
     expect(res.statusCode).toBe(403);
   });
@@ -121,10 +131,11 @@ describe("Role-based guard (authorize middleware)", () => {
     const { token } = registerRes.body;
 
     const res = await request(app)
-      .get("/api/organizer-only-demo")
-      .set("Authorization", `Bearer ${token}`);
+      .post("/api/events")
+      .set("Authorization", `Bearer ${token}`)
+      .send(samplePayload);
 
-    expect(res.statusCode).toBe(200);
-    expect(res.body.message).toContain("Rahul Verma");
+    expect(res.statusCode).toBe(201);
+    expect(res.body.event.organizer).toBeDefined();
   });
 });

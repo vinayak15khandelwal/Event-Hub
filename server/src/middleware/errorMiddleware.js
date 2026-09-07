@@ -8,7 +8,8 @@ export const notFound = (req, res, next) => {
 // Central error handler - every controller throws/passes errors here via next(err)
 // or via express-async-handler, instead of scattering try/catch everywhere.
 export const errorHandler = (err, req, res, next) => {
-  let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+  let statusCode =
+    err.statusCode || (res.statusCode === 200 ? 500 : res.statusCode);
   let message = err.message;
 
   // Mongoose bad ObjectId
