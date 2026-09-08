@@ -86,6 +86,22 @@ const eventSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Seat generation (Day 4) needs a deterministic 1:1 mapping between price
+// tiers and physical seats, so tier quantities must add up to capacity.
+eventSchema.pre("validate", function (next) {
+  if (this.priceTiers && this.priceTiers.length > 0 && this.capacity !== undefined) {
+    const total = this.priceTiers.reduce((sum, t) => sum + (t.quantity || 0), 0);
+    if (total !== this.capacity) {
+      const err = new Error(
+        `Sum of price tier quantities (${total}) must equal capacity (${this.capacity})`
+      );
+      err.statusCode = 400;
+      return next(err);
+    }
+  }
+  next();
+});
+
 // Supports the "search" filter (event listing with filters, Day 3)
 eventSchema.index({ name: "text", venue: "text" });
 // Supports category + date-range filters without a full collection scan

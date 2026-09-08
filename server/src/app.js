@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
+import seatRoutes from "./routes/seatRoutes.js";
 
 const app = express();
 
@@ -31,7 +32,8 @@ app.get("/api/health", (req, res) => {
 // --- Feature routes ---
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
-// Day 4-5: app.use("/api/bookings", bookingRoutes);
+app.use("/api/events/:eventId/seats", seatRoutes);
+// Day 5: app.use("/api/bookings", bookingRoutes);
 // Day 6: app.use("/api/dashboard", dashboardRoutes);
 // Day 7: app.use("/api/checkin", checkinRoutes);
 

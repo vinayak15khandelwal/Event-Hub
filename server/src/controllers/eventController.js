@@ -1,5 +1,7 @@
 import asyncHandler from "express-async-handler";
 import Event from "../models/Event.js";
+import Seat from "../models/Seat.js";
+import { buildSeatsForEvent } from "../utils/generateSeats.js";
 
 // Throws a consistent 403 if the requesting user isn't the event's organizer.
 // Centralized here so update/delete can't drift out of sync with each other.
@@ -28,6 +30,23 @@ export const createEvent = asyncHandler(async (req, res) => {
     priceTiers,
     organizer: req.user._id,
   });
+
+  // Generate one Seat document per unit of price-tier quantity. This isn't
+  // wrapped in a native MongoDB transaction: Atlas (a replica set) supports
+  // those, but the local test environment (a single mongodb-memory-server
+  // instance) does not, and multi-document transactions aren't required
+  // here the way they are for Day 5's actual booking commit. Instead we use
+  // a compensating delete (saga-style) - if seat generation fails, the
+  // just-created event is rolled back manually so we never end up with an
+  // event that has no seats.
+  try {
+    const seats = buildSeatsForEvent(event);
+    await Seat.insertMany(seats);
+  } catch (seatError) {
+    await event.deleteOne();
+    res.status(500);
+    throw new Error(`Failed to generate seat map: ${seatError.message}`);
+  }
 
   res.status(201).json({ success: true, event });
 });
@@ -116,6 +135,23 @@ export const updateEvent = asyncHandler(async (req, res) => {
 
   assertIsOwner(event, req.user._id);
 
+  const capacityOrTiersChanging =
+    (req.body.capacity !== undefined && req.body.capacity !== event.capacity) ||
+    req.body.priceTiers !== undefined;
+
+  if (capacityOrTiersChanging) {
+    const hasLockedSeats = await Seat.exists({
+      event: event._id,
+      status: { $ne: "available" },
+    });
+    if (hasLockedSeats) {
+      res.status(400);
+      throw new Error(
+        "Can't change capacity or price tiers once seats are held or booked"
+      );
+    }
+  }
+
   const editableFields = [
     "name",
     "description",
@@ -131,6 +167,14 @@ export const updateEvent = asyncHandler(async (req, res) => {
   });
 
   const updated = await event.save();
+
+  if (capacityOrTiersChanging) {
+    // Safe to regenerate wholesale - the guard above already confirmed
+    // every existing seat was still "available" (none held/booked).
+    await Seat.deleteMany({ event: updated._id });
+    await Seat.insertMany(buildSeatsForEvent(updated));
+  }
+
   res.json({ success: true, event: updated });
 });
 
@@ -147,6 +191,7 @@ export const deleteEvent = asyncHandler(async (req, res) => {
 
   assertIsOwner(event, req.user._id);
 
+  await Seat.deleteMany({ event: event._id });
   await event.deleteOne();
   res.json({ success: true, message: "Event deleted" });
 });
