@@ -6,6 +6,7 @@ import { notFound, errorHandler } from "./middleware/errorMiddleware.js";
 import authRoutes from "./routes/authRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
 import seatRoutes from "./routes/seatRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
 
 const app = express();
 
@@ -33,7 +34,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/events/:eventId/seats", seatRoutes);
-// Day 5: app.use("/api/bookings", bookingRoutes);
+app.use("/api/bookings", bookingRoutes);
 // Day 6: app.use("/api/dashboard", dashboardRoutes);
 // Day 7: app.use("/api/checkin", checkinRoutes);
 
