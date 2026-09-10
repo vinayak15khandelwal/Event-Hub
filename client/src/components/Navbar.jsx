@@ -17,6 +17,10 @@ const Navbar = () => {
       </Link>
 
       <div className="flex items-center gap-4 text-sm">
+        <Link to="/events" className="text-slate-300 hover:text-white">
+          Events
+        </Link>
+
         {!isAuthenticated && (
           <>
             <Link to="/login" className="text-slate-300 hover:text-white">
