@@ -13,7 +13,7 @@ Code A Nova Full Stack Development internship.
 - [x] Event management (Day 3)
 - [x] Seat selection + real-time availability (Day 4)
 - [x] Ticket booking + QR generation (Day 5)
-- [ ] Organizer dashboard (Day 6)
+- [x] Organizer dashboard (Day 6)
 - [ ] QR check-in (Day 7)
 - [ ] Attendee portal (Day 8)
 - [ ] Testing + responsive audit (Day 9)
@@ -126,6 +126,13 @@ A UI/UX + price-tier correctness pass on top of Days 1-5, before starting Day 6.
 - **Card expiry**: replaced the free-text field with `CardExpiryInput.jsx` — month/year `<select>` pair, validated against the current month (`isExpiryValid`). This is the mock-payment card's expiry only; event date/time is untouched.
 - **What was NOT a bug**: checkout's per-seat pricing (`priceFor(seat.tierName)`) and the backend's booking-amount calculation already resolved each seat's own tier correctly — neither ever used `priceTiers[0]` or trusted a client-sent price. Verified by reading the code and by a dedicated regression test (`bookings.test.js`) that books a VIP + General seat together and asserts each ticket's price independently.
 
+## Organizer Dashboard (Day 6)
+
+- **Analytics**: `GET /api/events/:id/dashboard/analytics` computes total revenue, tickets sold, sold %, and a per-tier revenue breakdown by aggregating the actual `Ticket` collection (`$group` by `tierName`) - not read off the event's cached `ticketsSold` counter. Rendered as stat cards plus a lightweight bar chart (`RevenueChart.jsx`, plain proportional divs - no charting library added for a handful of bars).
+- **Attendee roster**: `GET /api/events/:id/dashboard/attendees` returns each ticket joined with the attendee's name/email and seat label. The same endpoint doubles as CSV export via `?format=csv` (one code path, not two) - the client requests it with `responseType: "blob"` through the authenticated axios instance and triggers a real file download, rather than a plain link (which would be more fragile across cookie/CORS setups).
+- **Announcements**: organizer sends via `POST /api/events/:id/announcements` (owner-checked), persisted to an `Announcement` collection so any ticket-holder can read it later, *and* pushed live over the same per-event Socket.io room the seat map already uses. There's no real email/SMS gateway in this project's scope, so this is the honest mock-equivalent of "sent" - stated plainly rather than implied to be a real notification.
+- **Authorization**: both new controllers reuse the same `assertIsOwner` helper from `eventController.js` (now exported) rather than re-implementing ownership checks - an organizer can only see analytics/roster/announcements for events they own; attendees are blocked from all three except reading announcements for events they hold a ticket to.
+
 ## Data Model
 
 ### User
@@ -142,6 +149,9 @@ See above. Indexed on `{name, venue}` (text) for search, and `{category, date}` 
 
 ### Ticket
 `booking`, `event`, `seat`, `user` (all refs), `tierName`, `price`, `qrToken` (signed JWT, unique), `qrCodeDataUrl` (base64 PNG), `status` (valid/checked-in/cancelled), `checkedInAt` (set on Day 7).
+
+### Announcement
+`event`, `organizer` (refs), `subject`, `message`, timestamps.
 
 ## Demo
 
