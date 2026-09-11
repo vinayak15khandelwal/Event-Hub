@@ -3,6 +3,10 @@ import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import app from "../app.js";
 import Event from "../models/Event.js";
+import User from "../models/User.js";
+import Seat from "../models/Seat.js";
+import Booking from "../models/Booking.js";
+import Ticket from "../models/Ticket.js";
 import { verifyTicketToken } from "../utils/qrToken.js";
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test_secret_for_jest_only";
@@ -16,6 +20,13 @@ beforeAll(async () => {
   // still far faster to boot than a real multi-node cluster.
   replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await mongoose.connect(replSet.getUri());
+
+  // A MongoDB transaction can implicitly create at most one new collection.
+  // The booking transaction writes to both Booking and Ticket together, so
+  // on this fresh in-memory database both collections must already exist
+  // before the first transactional test runs - otherwise that first test
+  // would be asking the transaction to create two collections at once.
+  await Promise.all([User.init(), Event.init(), Seat.init(), Booking.init(), Ticket.init()]);
 }, 180000);
 
 afterAll(async () => {
@@ -85,6 +96,45 @@ const setupEventWithHeldSeat = async () => {
 };
 
 describe("POST /api/bookings (the transactional booking flow)", () => {
+  it("prices each seat by its own tier - never assumes the first price tier", async () => {
+    const organizerToken = await registerOrganizer();
+    const attendee = await registerAttendee();
+
+    const createRes = await request(app)
+      .post("/api/events")
+      .set("Authorization", `Bearer ${organizerToken}`)
+      .send(eventPayload); // General x2 @100, VIP x2 @500
+    const eventId = createRes.body.event._id;
+
+    const seatsRes = await request(app).get(`/api/events/${eventId}/seats`);
+    const generalSeat = seatsRes.body.seats.find((s) => s.tierName === "General");
+    const vipSeat = seatsRes.body.seats.find((s) => s.tierName === "VIP");
+
+    // Hold one seat from each tier, in VIP-then-General order deliberately -
+    // if the backend ever regressed to "just use priceTiers[0]", this would
+    // silently charge both seats at the VIP (or General) price instead of
+    // each seat's own tier.
+    await request(app)
+      .post(`/api/events/${eventId}/seats/${vipSeat._id}/hold`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+    await request(app)
+      .post(`/api/events/${eventId}/seats/${generalSeat._id}/hold`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+
+    const res = await request(app)
+      .post("/api/bookings")
+      .set("Authorization", `Bearer ${attendee.token}`)
+      .send({ eventId, seatIds: [vipSeat._id, generalSeat._id] });
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body.booking.totalAmount).toBe(600); // 500 (VIP) + 100 (General)
+
+    const vipTicket = res.body.tickets.find((t) => t.tierName === "VIP");
+    const generalTicket = res.body.tickets.find((t) => t.tierName === "General");
+    expect(vipTicket.price).toBe(500);
+    expect(generalTicket.price).toBe(100);
+  });
+
   it("books a held seat and issues a ticket with a signed QR token", async () => {
     const { attendee, eventId, seat } = await setupEventWithHeldSeat();
 

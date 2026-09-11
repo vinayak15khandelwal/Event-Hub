@@ -16,8 +16,10 @@ const CreateEvent = () => {
   });
 
   return (
-    <div className="min-h-[80vh] bg-slate-950 text-slate-100 p-8">
-      <h1 className="mb-4 text-2xl font-semibold">Create Event</h1>
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+      <h1 className="mb-4 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+        Create Event
+      </h1>
       <EventForm onSubmit={mutation.mutateAsync} submitLabel="Create Event" />
     </div>
   );

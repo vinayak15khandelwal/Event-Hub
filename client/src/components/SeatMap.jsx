@@ -3,15 +3,21 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchSeats, holdSeat as holdSeatApi, releaseSeat as releaseSeatApi } from "../api/events";
 import socket from "../lib/socket";
 import useAuthStore from "../store/authStore";
+import Alert from "./ui/Alert";
+import Spinner from "./ui/Spinner";
 
 const statusStyles = {
-  available: "bg-slate-800 hover:bg-slate-700 cursor-pointer",
-  heldByMe: "bg-indigo-600 cursor-pointer",
-  heldByOther: "bg-amber-700/60 cursor-not-allowed",
-  booked: "bg-red-900/60 cursor-not-allowed",
+  available:
+    "bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300",
+  heldByMe: "bg-indigo-600 text-white cursor-pointer",
+  heldByOther:
+    "bg-amber-300/70 text-amber-900 cursor-not-allowed dark:bg-amber-700/60 dark:text-amber-100",
+  booked:
+    "bg-red-300/70 text-red-900 cursor-not-allowed dark:bg-red-900/60 dark:text-red-100",
+  dimmed: "opacity-25 pointer-events-none",
 };
 
-const SeatMap = ({ eventId, onHeldSeatsChange }) => {
+const SeatMap = ({ eventId, onHeldSeatsChange, onTierSummaryChange, tierFilter }) => {
   const { user, isAuthenticated } = useAuthStore();
   const queryClient = useQueryClient();
   const [seatsById, setSeatsById] = useState({});
@@ -72,6 +78,32 @@ const SeatMap = ({ eventId, onHeldSeatsChange }) => {
     return "available";
   };
 
+  const myHeldSeats = seats.filter(
+    (s) => s.status === "held" && s.heldBy === user?.id
+  );
+
+  useEffect(() => {
+    onHeldSeatsChange?.(myHeldSeats);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(myHeldSeats.map((s) => s._id))]);
+
+  // Recomputed live from the seats we hold locally, so a hold/release/expiry
+  // updates the tier cards on EventDetails without a second network call.
+  useEffect(() => {
+    if (!data?.meta?.tierSummary) return;
+    const live = data.meta.tierSummary.map((tier) => {
+      const tierSeats = seats.filter((s) => s.tierName === tier.name);
+      return {
+        ...tier,
+        available: tierSeats.filter((s) => s.status === "available").length,
+        held: tierSeats.filter((s) => s.status === "held").length,
+        booked: tierSeats.filter((s) => s.status === "booked").length,
+      };
+    });
+    onTierSummaryChange?.(live);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, JSON.stringify(seats.map((s) => `${s._id}:${s.status}`))]);
+
   const handleSeatClick = async (seat) => {
     setActionError("");
     if (!isAuthenticated) {
@@ -92,55 +124,60 @@ const SeatMap = ({ eventId, onHeldSeatsChange }) => {
       }
     } catch (err) {
       setActionError(err.response?.data?.message || "That didn't go through - try again.");
-      // Someone else may have grabbed it first - resync from the server
       queryClient.invalidateQueries({ queryKey: ["seats", eventId] });
     } finally {
       setPendingSeatId(null);
     }
   };
 
-  const myHeldSeats = seats.filter(
-    (s) => s.status === "held" && s.heldBy === user?.id
-  );
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+        <Spinner /> <span>Loading seat map...</span>
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    onHeldSeatsChange?.(myHeldSeats);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(myHeldSeats.map((s) => s._id))]);
-
-  if (isLoading) return <p className="text-slate-400">Loading seat map...</p>;
+  if (seats.length === 0) {
+    return (
+      <p className="text-sm text-slate-500 dark:text-slate-500">
+        No seats are available for this event.
+      </p>
+    );
+  }
 
   return (
     <div>
       {actionError && (
-        <p className="mb-3 rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">
+        <Alert variant="error" className="mb-3">
           {actionError}
-        </p>
+        </Alert>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-4 text-xs text-slate-400">
+      <div className="mb-4 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-slate-800" /> Available
+          <span className="h-3 w-3 rounded-sm bg-slate-200 dark:bg-slate-800" /> Available
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-sm bg-indigo-600" /> Your hold
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-amber-700/60" /> Held by someone else
+          <span className="h-3 w-3 rounded-sm bg-amber-300/70 dark:bg-amber-700/60" /> Held by someone else
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-red-900/60" /> Booked
+          <span className="h-3 w-3 rounded-sm bg-red-300/70 dark:bg-red-900/60" /> Booked
         </span>
       </div>
 
       <div
-        className="grid gap-1.5"
-        style={{ gridTemplateColumns: `repeat(${seatsPerRow}, minmax(0, 1fr))` }}
+        className="grid gap-1.5 overflow-x-auto"
+        style={{ gridTemplateColumns: `repeat(${seatsPerRow}, minmax(2rem, 1fr))` }}
       >
         {seats
           .sort((a, b) => a.row - b.row || a.col - b.col)
           .map((seat) => {
             const displayStatus = seatStatusFor(seat);
+            const isDimmed = tierFilter && seat.tierName !== tierFilter;
             const secondsLeft =
               displayStatus === "heldByMe" && seat.holdExpiresAt
                 ? Math.max(0, Math.ceil((new Date(seat.holdExpiresAt) - now) / 1000))
@@ -153,7 +190,9 @@ const SeatMap = ({ eventId, onHeldSeatsChange }) => {
                 title={`${seat.label} - ${seat.tierName}`}
                 disabled={pendingSeatId === seat._id}
                 onClick={() => handleSeatClick(seat)}
-                className={`relative flex h-9 w-9 items-center justify-center rounded-md text-[10px] font-medium text-slate-100 transition-colors disabled:opacity-50 ${statusStyles[displayStatus]}`}
+                className={`relative flex h-9 w-full items-center justify-center rounded-md text-[10px] font-medium transition-colors disabled:opacity-50 ${statusStyles[displayStatus]} ${
+                  isDimmed ? statusStyles.dimmed : ""
+                }`}
               >
                 {secondsLeft !== null ? `${secondsLeft}s` : seat.col + 1}
               </button>
@@ -162,7 +201,7 @@ const SeatMap = ({ eventId, onHeldSeatsChange }) => {
       </div>
 
       {myHeldSeats.length > 0 && (
-        <p className="mt-4 text-sm text-slate-400">
+        <p className="mt-4 text-sm text-slate-600 dark:text-slate-400">
           Holding {myHeldSeats.length} seat{myHeldSeats.length > 1 ? "s" : ""} -
           complete your booking before the timer runs out.
         </p>

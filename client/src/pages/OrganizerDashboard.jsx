@@ -2,6 +2,11 @@ import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import useAuthStore from "../store/authStore";
 import { fetchMyEvents, deleteEvent } from "../api/events";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import EmptyState from "../components/ui/EmptyState";
+import Spinner from "../components/ui/Spinner";
+import Badge from "../components/ui/Badge";
 
 const OrganizerDashboard = () => {
   const { user } = useAuthStore();
@@ -24,69 +29,97 @@ const OrganizerDashboard = () => {
   };
 
   return (
-    <div className="min-h-[80vh] bg-slate-950 text-slate-100 p-8">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Organizer Dashboard</h1>
-          <p className="mt-1 text-slate-400">Welcome, {user.name}</p>
+          <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+            Organizer Dashboard
+          </h1>
+          <p className="mt-1 text-slate-600 dark:text-slate-400">
+            Welcome, {user.name}
+          </p>
         </div>
-        <Link
-          to="/organizer/events/new"
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium hover:bg-indigo-500"
-        >
-          + Create Event
+        <Link to="/organizer/events/new">
+          <Button>+ Create Event</Button>
         </Link>
       </div>
 
       <div className="mt-8">
-        <h2 className="mb-3 text-sm font-medium text-slate-400">My Events</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+          My Events
+        </h2>
 
-        {isLoading && <p className="text-slate-400">Loading...</p>}
+        {isLoading && (
+          <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+            <Spinner /> <span>Loading...</span>
+          </div>
+        )}
 
         {events && events.length === 0 && (
-          <p className="text-slate-500">
-            You haven't created any events yet.
-          </p>
+          <EmptyState
+            title="You haven't created any events yet"
+            description="Create your first event to get started."
+          />
         )}
 
         {events && events.length > 0 && (
-          <div className="overflow-hidden rounded-lg border border-slate-800">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900 text-slate-400">
+          <Card className="overflow-x-auto p-0">
+            <table className="w-full min-w-[640px] text-left text-sm">
+              <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900/60 dark:text-slate-400">
                 <tr>
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3">Date</th>
-                  <th className="px-4 py-3">Venue</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Seats</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+                  <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-4 py-3 font-medium">Date</th>
+                  <th className="px-4 py-3 font-medium">Venue</th>
+                  <th className="px-4 py-3 font-medium">Status</th>
+                  <th className="px-4 py-3 font-medium">Seats</th>
+                  <th className="px-4 py-3 text-right font-medium">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {events.map((event) => (
-                  <tr key={event._id} className="border-t border-slate-800">
-                    <td className="px-4 py-3">{event.name}</td>
-                    <td className="px-4 py-3 text-slate-400">
+                  <tr key={event._id}>
+                    <td className="px-4 py-3 text-slate-900 dark:text-slate-100">
+                      {event.name}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
                       {new Date(event.date).toLocaleDateString()}
                     </td>
-                    <td className="px-4 py-3 text-slate-400">{event.venue}</td>
-                    <td className="px-4 py-3 capitalize text-slate-400">
-                      {event.status}
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
+                      {event.venue}
                     </td>
-                    <td className="px-4 py-3 text-slate-400">
+                    <td className="px-4 py-3">
+                      <Badge
+                        variant={
+                          event.status === "published"
+                            ? "success"
+                            : event.status === "cancelled"
+                            ? "danger"
+                            : "neutral"
+                        }
+                      >
+                        {event.status}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 text-slate-500 dark:text-slate-400">
                       {(event.capacity ?? 0) - (event.ticketsSold ?? 0)}/
                       {event.capacity}
                     </td>
                     <td className="px-4 py-3 text-right space-x-3">
                       <Link
+                        to={`/organizer/events/${event._id}/dashboard`}
+                        className="text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        Dashboard
+                      </Link>
+                      <Link
                         to={`/organizer/events/${event._id}/edit`}
-                        className="text-indigo-400 hover:underline"
+                        className="text-indigo-600 hover:underline dark:text-indigo-400"
                       >
                         Edit
                       </Link>
                       <button
                         onClick={() => handleDelete(event._id, event.name)}
-                        className="text-red-400 hover:underline"
+                        className="text-red-600 hover:underline dark:text-red-400"
                       >
                         Delete
                       </button>
@@ -95,7 +128,7 @@ const OrganizerDashboard = () => {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         )}
       </div>
     </div>

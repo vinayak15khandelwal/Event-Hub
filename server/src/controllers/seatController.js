@@ -1,17 +1,47 @@
 import asyncHandler from "express-async-handler";
 import Seat from "../models/Seat.js";
+import Event from "../models/Event.js";
 import { SEATS_PER_ROW } from "../utils/generateSeats.js";
 import { getIO } from "../socket.js";
 
 const HOLD_DURATION_MS = 2 * 60 * 1000; // 2 minutes, per the brief's constraint
 
-// @desc   List all seats for an event (for rendering the seating chart)
+// @desc   List all seats for an event, plus a per-tier availability summary
 // @route  GET /api/events/:eventId/seats
 // @access Public
 export const getSeatsForEvent = asyncHandler(async (req, res) => {
   const { eventId } = req.params;
-  const seats = await Seat.find({ event: eventId }).sort({ row: 1, col: 1 });
-  res.json({ success: true, seats, meta: { seatsPerRow: SEATS_PER_ROW } });
+
+  const [event, seats] = await Promise.all([
+    Event.findById(eventId).select("priceTiers"),
+    Seat.find({ event: eventId }).sort({ row: 1, col: 1 }),
+  ]);
+
+  if (!event) {
+    res.status(404);
+    throw new Error("Event not found");
+  }
+
+  // Per-tier counts, derived from the real Seat documents (never hardcoded
+  // or trusted from the client) - this is what the attendee-facing price
+  // tier cards render from.
+  const tierSummary = event.priceTiers.map((tier) => {
+    const tierSeats = seats.filter((s) => s.tierName === tier.name);
+    return {
+      name: tier.name,
+      price: tier.price,
+      quantity: tier.quantity,
+      available: tierSeats.filter((s) => s.status === "available").length,
+      held: tierSeats.filter((s) => s.status === "held").length,
+      booked: tierSeats.filter((s) => s.status === "booked").length,
+    };
+  });
+
+  res.json({
+    success: true,
+    seats,
+    meta: { seatsPerRow: SEATS_PER_ROW, tierSummary },
+  });
 });
 
 // @desc   Hold a seat for 2 minutes

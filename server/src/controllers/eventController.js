@@ -5,7 +5,7 @@ import { buildSeatsForEvent } from "../utils/generateSeats.js";
 
 // Throws a consistent 403 if the requesting user isn't the event's organizer.
 // Centralized here so update/delete can't drift out of sync with each other.
-const assertIsOwner = (event, userId) => {
+export const assertIsOwner = (event, userId) => {
   if (event.organizer.toString() !== userId.toString()) {
     const err = new Error("You do not own this event");
     err.statusCode = 403;

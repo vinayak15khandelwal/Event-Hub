@@ -116,6 +116,16 @@ npm run dev
 - **Mock payment**: a card form on the client that never talks to a real gateway — "payment" is really just the booking transaction committing successfully. This is a deliberate simplification, worth stating plainly if asked ("no PCI-scope, no real gateway — the brief calls for a mock payment step, not a Stripe integration").
 - **Testing transactions required a different test setup**: `mongodb-memory-server`'s standalone mode (used by every other test file) doesn't support transactions — only a replica set does. `bookings.test.js` spins up a single-node `MongoMemoryReplSet` instead, which is enough to exercise real transaction semantics without a multi-node cluster.
 
+## Pre-Day-6 Polish Pass
+
+A UI/UX + price-tier correctness pass on top of Days 1-5, before starting Day 6.
+
+- **Dark/light theme**: `darkMode: "class"` in Tailwind, a `themeStore.js` (zustand, same pattern as auth/theme-agnostic) that persists to `localStorage` and defaults to system preference, plus a tiny inline script in `index.html` that applies the saved class before React mounts (no flash of the wrong theme). Toggle lives in the Navbar on every route.
+- **Shared UI kit** (`components/ui/`): `Button`, `Card`, `Alert`, `Badge`, `Spinner`, `EmptyState`, and shared `inputClasses`/`labelClasses`. Every page now composes from these instead of one-off Tailwind strings, so the visual language (spacing, borders, focus rings, disabled states) is consistent and only needs to change in one place.
+- **Price-tier visibility (the actual gap behind the reported bug)**: `GET /api/events/:id/seats` now also returns `meta.tierSummary` — per-tier price/quantity/available/held/booked, computed server-side from real Seat documents. `PriceTierList.jsx` renders this as tier cards with live availability and a "Sold Out" state; `SeatMap.jsx` accepts a `tierFilter` to visually dim seats outside the selected tier. Mixed-tier bookings are supported and stated explicitly in the UI.
+- **Card expiry**: replaced the free-text field with `CardExpiryInput.jsx` — month/year `<select>` pair, validated against the current month (`isExpiryValid`). This is the mock-payment card's expiry only; event date/time is untouched.
+- **What was NOT a bug**: checkout's per-seat pricing (`priceFor(seat.tierName)`) and the backend's booking-amount calculation already resolved each seat's own tier correctly — neither ever used `priceTiers[0]` or trusted a client-sent price. Verified by reading the code and by a dedicated regression test (`bookings.test.js`) that books a VIP + General seat together and asserts each ticket's price independently.
+
 ## Data Model
 
 ### User

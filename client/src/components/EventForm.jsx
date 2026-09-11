@@ -1,5 +1,9 @@
 import { useState } from "react";
 import { CATEGORIES } from "../constants/categories";
+import Card from "./ui/Card";
+import Button from "./ui/Button";
+import Alert from "./ui/Alert";
+import { inputClasses, labelClasses } from "./ui/formClasses";
 
 const emptyTier = () => ({ name: "", price: "", quantity: "" });
 
@@ -51,6 +55,13 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
       priceTiers: form.priceTiers.filter((_, i) => i !== index),
     });
 
+  const tierQuantityTotal = form.priceTiers.reduce(
+    (sum, t) => sum + (Number(t.quantity) || 0),
+    0
+  );
+  const capacityMismatch =
+    form.capacity !== "" && Number(form.capacity) !== tierQuantityTotal;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -73,156 +84,163 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
   };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="max-w-2xl space-y-4 rounded-lg bg-slate-900 p-6"
-    >
-      {error && (
-        <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">
-          {error}
-        </p>
-      )}
+    <Card className="max-w-2xl p-5 sm:p-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <Alert variant="error">{error}</Alert>}
 
-      <div>
-        <label className="mb-1 block text-sm text-slate-400">Event name</label>
-        <input
-          name="name"
-          required
-          value={form.name}
-          onChange={handleChange}
-          className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm text-slate-400">Description</label>
-        <textarea
-          name="description"
-          rows={3}
-          value={form.description}
-          onChange={handleChange}
-          className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="mb-1 block text-sm text-slate-400">Category</label>
-          <select
-            name="category"
-            value={form.category}
+          <label className={labelClasses}>Event name</label>
+          <input
+            name="name"
+            required
+            value={form.name}
             onChange={handleChange}
-            className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
+            className={inputClasses}
+          />
+        </div>
+
+        <div>
+          <label className={labelClasses}>Description</label>
+          <textarea
+            name="description"
+            rows={3}
+            value={form.description}
+            onChange={handleChange}
+            className={inputClasses}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelClasses}>Category</label>
+            <select
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              className={inputClasses}
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClasses}>Date & time</label>
+            <input
+              type="datetime-local"
+              name="date"
+              required
+              value={form.date}
+              onChange={handleChange}
+              className={inputClasses}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelClasses}>Venue</label>
+            <input
+              name="venue"
+              required
+              value={form.venue}
+              onChange={handleChange}
+              className={inputClasses}
+            />
+          </div>
+
+          <div>
+            <label className={labelClasses}>Capacity</label>
+            <input
+              type="number"
+              name="capacity"
+              required
+              min={1}
+              value={form.capacity}
+              onChange={handleChange}
+              className={inputClasses}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-400">
+              Price tiers
+            </label>
+            <button
+              type="button"
+              onClick={addTier}
+              className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              + Add tier
+            </button>
+          </div>
+
+          <div className="space-y-2">
+            {form.priceTiers.map((tier, i) => (
+              <div key={i} className="grid grid-cols-8 gap-2">
+                <input
+                  placeholder="Tier name (e.g. General)"
+                  required
+                  value={tier.name}
+                  onChange={(e) => handleTierChange(i, "name", e.target.value)}
+                  className={`col-span-3 ${inputClasses} py-1.5 text-sm`}
+                />
+                <input
+                  type="number"
+                  placeholder="Price (₹)"
+                  required
+                  min={0}
+                  value={tier.price}
+                  onChange={(e) => handleTierChange(i, "price", e.target.value)}
+                  className={`col-span-2 ${inputClasses} py-1.5 text-sm`}
+                />
+                <input
+                  type="number"
+                  placeholder="Qty"
+                  required
+                  min={1}
+                  value={tier.quantity}
+                  onChange={(e) => handleTierChange(i, "quantity", e.target.value)}
+                  className={`col-span-2 ${inputClasses} py-1.5 text-sm`}
+                />
+                {form.priceTiers.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeTier(i)}
+                    className="col-span-1 text-red-500 hover:text-red-400"
+                    aria-label="Remove tier"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             ))}
-          </select>
-        </div>
+          </div>
 
-        <div>
-          <label className="mb-1 block text-sm text-slate-400">Date & time</label>
-          <input
-            type="datetime-local"
-            name="date"
-            required
-            value={form.date}
-            onChange={handleChange}
-            className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="mb-1 block text-sm text-slate-400">Venue</label>
-          <input
-            name="venue"
-            required
-            value={form.venue}
-            onChange={handleChange}
-            className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm text-slate-400">Capacity</label>
-          <input
-            type="number"
-            name="capacity"
-            required
-            min={1}
-            value={form.capacity}
-            onChange={handleChange}
-            className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-      </div>
-
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <label className="text-sm text-slate-400">Price tiers</label>
-          <button
-            type="button"
-            onClick={addTier}
-            className="text-xs text-indigo-400 hover:underline"
+          <p
+            className={`mt-2 text-xs ${
+              capacityMismatch
+                ? "text-amber-600 dark:text-amber-400"
+                : "text-slate-500 dark:text-slate-500"
+            }`}
           >
-            + Add tier
-          </button>
+            Tier quantities total {tierQuantityTotal}
+            {form.capacity !== "" ? ` of ${form.capacity} capacity` : ""}
+            {capacityMismatch &&
+              " - these must match exactly, or the server will reject this."}
+          </p>
         </div>
 
-        <div className="space-y-2">
-          {form.priceTiers.map((tier, i) => (
-            <div key={i} className="grid grid-cols-8 gap-2">
-              <input
-                placeholder="Tier name (e.g. General)"
-                required
-                value={tier.name}
-                onChange={(e) => handleTierChange(i, "name", e.target.value)}
-                className="col-span-3 rounded-md bg-slate-800 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                type="number"
-                placeholder="Price (₹)"
-                required
-                min={0}
-                value={tier.price}
-                onChange={(e) => handleTierChange(i, "price", e.target.value)}
-                className="col-span-2 rounded-md bg-slate-800 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              <input
-                type="number"
-                placeholder="Qty"
-                required
-                min={1}
-                value={tier.quantity}
-                onChange={(e) => handleTierChange(i, "quantity", e.target.value)}
-                className="col-span-2 rounded-md bg-slate-800 px-2 py-1.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-              {form.priceTiers.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeTier(i)}
-                  className="col-span-1 text-red-400 hover:text-red-300"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full rounded-md bg-indigo-600 py-2 font-medium hover:bg-indigo-500 disabled:opacity-50"
-      >
-        {submitting ? "Saving..." : submitLabel}
-      </button>
-    </form>
+        <Button type="submit" disabled={submitting} className="w-full py-3">
+          {submitting ? "Saving..." : submitLabel}
+        </Button>
+      </form>
+    </Card>
   );
 };
 

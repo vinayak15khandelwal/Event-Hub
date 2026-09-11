@@ -3,6 +3,12 @@ import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { fetchEventById } from "../api/events";
 import { createBooking } from "../api/bookings";
+import CardExpiryInput, { isExpiryValid } from "../components/CardExpiryInput";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import Alert from "../components/ui/Alert";
+import Spinner from "../components/ui/Spinner";
+import { inputClasses, labelClasses } from "../components/ui/formClasses";
 
 const Checkout = () => {
   const { id: eventId } = useParams();
@@ -12,7 +18,14 @@ const Checkout = () => {
   // extra round trip since SeatMap already knows exactly what's held.
   const heldSeats = location.state?.heldSeats || [];
 
-  const [card, setCard] = useState({ number: "", expiry: "", cvv: "", name: "" });
+  const [card, setCard] = useState({
+    number: "",
+    name: "",
+    cvv: "",
+    expiryMonth: "",
+    expiryYear: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState("");
 
   const { data: event, isLoading } = useQuery({
@@ -34,9 +47,14 @@ const Checkout = () => {
 
   if (heldSeats.length === 0) {
     return (
-      <div className="min-h-[80vh] bg-slate-950 text-slate-100 p-8">
-        <p>No seats selected for checkout.</p>
-        <Link to={`/events/${eventId}`} className="text-indigo-400 hover:underline">
+      <div className="mx-auto max-w-lg px-4 py-8">
+        <p className="text-slate-900 dark:text-slate-100">
+          No seats selected for checkout.
+        </p>
+        <Link
+          to={`/events/${eventId}`}
+          className="text-indigo-600 hover:underline dark:text-indigo-400"
+        >
           Back to seat selection
         </Link>
       </div>
@@ -47,120 +65,175 @@ const Checkout = () => {
     event?.priceTiers.find((t) => t.name === tierName)?.price || 0;
   const total = heldSeats.reduce((sum, s) => sum + priceFor(s.tierName), 0);
 
+  const validate = () => {
+    const errs = {};
+    if (!card.name.trim()) errs.name = "Name on card is required";
+    if (!/^\d{13,19}$/.test(card.number.replace(/\s/g, "")))
+      errs.number = "Enter a valid card number (13-19 digits)";
+    if (!/^\d{3,4}$/.test(card.cvv)) errs.cvv = "Enter a valid CVV";
+    if (!isExpiryValid(card.expiryMonth, card.expiryYear))
+      errs.expiry = "Select a valid, non-expired month/year";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const handlePayment = (e) => {
     e.preventDefault();
     setError("");
-    // Mock payment step - no real gateway. Any well-formed input "succeeds";
-    // the actual booking commit (transaction) happens server-side.
+    // Mock payment step - no real gateway. Client-side validation only
+    // gates the UX; the booking commit (transaction) and final price are
+    // computed and enforced server-side regardless of what's shown here.
+    if (!validate()) return;
     mutation.mutate({ eventId, seatIds: heldSeats.map((s) => s._id) });
   };
 
   return (
-    <div className="min-h-[80vh] bg-slate-950 text-slate-100 p-8">
-      <div className="mx-auto grid max-w-3xl gap-6 md:grid-cols-2">
-        <div>
-          <h1 className="text-xl font-semibold">Order Summary</h1>
+    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+        Checkout
+      </h1>
+
+      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+        <Card className="p-5 sm:p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Order Summary
+          </h2>
+
           {isLoading ? (
-            <p className="mt-2 text-slate-400">Loading...</p>
+            <div className="mt-4 flex items-center gap-2 text-slate-500 dark:text-slate-400">
+              <Spinner /> <span>Loading...</span>
+            </div>
           ) : (
             <>
-              <p className="mt-1 text-slate-400">{event.name}</p>
-              <p className="text-sm text-slate-500">
+              <p className="mt-3 font-medium text-slate-900 dark:text-slate-100">
+                {event.name}
+              </p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 {new Date(event.date).toLocaleString()} · {event.venue}
               </p>
 
-              <div className="mt-4 space-y-2">
+              <div className="mt-4 divide-y divide-slate-200 dark:divide-slate-800">
                 {heldSeats.map((seat) => (
                   <div
                     key={seat._id}
-                    className="flex items-center justify-between rounded-md bg-slate-900 px-4 py-2 text-sm"
+                    className="flex items-center justify-between py-2.5 text-sm"
                   >
-                    <span>
-                      Seat {seat.label} · {seat.tierName}
+                    <div>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">
+                        Seat {seat.label}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-500">
+                        {seat.tierName}
+                      </p>
+                    </div>
+                    <span className="font-medium text-slate-800 dark:text-slate-200">
+                      ₹{priceFor(seat.tierName)}
                     </span>
-                    <span className="text-indigo-400">₹{priceFor(seat.tierName)}</span>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4 text-lg font-semibold">
-                <span>Total</span>
-                <span>₹{total}</span>
+              <div className="mt-4 space-y-1 border-t border-slate-200 pt-4 text-sm dark:border-slate-800">
+                <div className="flex items-center justify-between text-slate-500 dark:text-slate-400">
+                  <span>Subtotal</span>
+                  <span>₹{total}</span>
+                </div>
+                <div className="flex items-center justify-between text-lg font-semibold text-slate-900 dark:text-slate-100">
+                  <span>Total</span>
+                  <span>₹{total}</span>
+                </div>
               </div>
             </>
           )}
-        </div>
+        </Card>
 
-        <form onSubmit={handlePayment} className="space-y-4 rounded-lg bg-slate-900 p-6">
-          <h2 className="text-lg font-semibold">Payment</h2>
-          <p className="text-xs text-slate-500">
-            Mock payment step - no real card is charged.
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Payment
+            </h2>
+          </div>
+          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+            Mock payment — no real card is charged.
           </p>
 
-          {error && (
-            <p className="rounded-md bg-red-950 px-3 py-2 text-sm text-red-300">
-              {error}
-            </p>
-          )}
+          <form onSubmit={handlePayment} className="mt-4 space-y-4">
+            {error && <Alert variant="error">{error}</Alert>}
 
-          <div>
-            <label className="mb-1 block text-sm text-slate-400">
-              Name on card
-            </label>
-            <input
-              required
-              value={card.name}
-              onChange={(e) => setCard({ ...card, name: e.target.value })}
-              className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm text-slate-400">
-              Card number
-            </label>
-            <input
-              required
-              placeholder="4242 4242 4242 4242"
-              maxLength={19}
-              value={card.number}
-              onChange={(e) => setCard({ ...card, number: e.target.value })}
-              className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-1 block text-sm text-slate-400">Expiry</label>
+              <label className={labelClasses}>Name on card</label>
               <input
-                required
-                placeholder="MM/YY"
-                maxLength={5}
-                value={card.expiry}
-                onChange={(e) => setCard({ ...card, expiry: e.target.value })}
-                className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
+                value={card.name}
+                onChange={(e) => setCard({ ...card, name: e.target.value })}
+                className={inputClasses}
+                placeholder="Priya Sharma"
               />
+              {fieldErrors.name && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {fieldErrors.name}
+                </p>
+              )}
             </div>
-            <div>
-              <label className="mb-1 block text-sm text-slate-400">CVV</label>
-              <input
-                required
-                maxLength={3}
-                value={card.cvv}
-                onChange={(e) => setCard({ ...card, cvv: e.target.value })}
-                className="w-full rounded-md bg-slate-800 px-3 py-2 outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-          </div>
 
-          <button
-            type="submit"
-            disabled={mutation.isPending}
-            className="w-full rounded-md bg-indigo-600 py-2 font-medium hover:bg-indigo-500 disabled:opacity-50"
-          >
-            {mutation.isPending ? "Processing..." : `Pay ₹${total}`}
-          </button>
-        </form>
+            <div>
+              <label className={labelClasses}>Card number</label>
+              <input
+                inputMode="numeric"
+                placeholder="4242 4242 4242 4242"
+                maxLength={19}
+                value={card.number}
+                onChange={(e) => setCard({ ...card, number: e.target.value })}
+                className={inputClasses}
+              />
+              {fieldErrors.number && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  {fieldErrors.number}
+                </p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <CardExpiryInput
+                month={card.expiryMonth}
+                year={card.expiryYear}
+                onChange={({ month, year }) =>
+                  setCard({ ...card, expiryMonth: month, expiryYear: year })
+                }
+                error={fieldErrors.expiry}
+              />
+              <div>
+                <label className={labelClasses}>CVV</label>
+                <input
+                  inputMode="numeric"
+                  maxLength={4}
+                  value={card.cvv}
+                  onChange={(e) => setCard({ ...card, cvv: e.target.value })}
+                  className={inputClasses}
+                  placeholder="123"
+                />
+                {fieldErrors.cvv && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                    {fieldErrors.cvv}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={mutation.isPending}
+              className="w-full py-3"
+            >
+              {mutation.isPending ? (
+                <>
+                  <Spinner className="h-4 w-4" /> Processing...
+                </>
+              ) : (
+                `Pay ₹${total}`
+              )}
+            </Button>
+          </form>
+        </Card>
       </div>
     </div>
   );

@@ -70,7 +70,7 @@ const createEventAndGetSeats = async (organizerToken) => {
   const eventId = createRes.body.event._id;
 
   const seatsRes = await request(app).get(`/api/events/${eventId}/seats`);
-  return { eventId, seats: seatsRes.body.seats };
+  return { eventId, seats: seatsRes.body.seats, meta: seatsRes.body.meta };
 };
 
 describe("Seat generation on event creation", () => {
@@ -92,6 +92,72 @@ describe("Seat generation on event creation", () => {
       .send({ ...smallEventPayload, capacity: 10 }); // tiers still sum to 4
 
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe("GET /api/events/:eventId/seats - tierSummary (per-tier availability)", () => {
+  it("reports each tier's price, quantity, and full availability before anything is held", async () => {
+    const organizerToken = await registerOrganizer();
+    const { meta } = await createEventAndGetSeats(organizerToken);
+
+    expect(meta.tierSummary).toHaveLength(2);
+    const general = meta.tierSummary.find((t) => t.name === "General");
+    const vip = meta.tierSummary.find((t) => t.name === "VIP");
+
+    expect(general).toMatchObject({
+      price: 100,
+      quantity: 2,
+      available: 2,
+      held: 0,
+      booked: 0,
+    });
+    expect(vip).toMatchObject({
+      price: 500,
+      quantity: 2,
+      available: 2,
+      held: 0,
+      booked: 0,
+    });
+  });
+
+  it("reflects a hold by moving one seat from available to held, for that tier only", async () => {
+    const organizerToken = await registerOrganizer();
+    const attendeeToken = await registerAttendee();
+    const { eventId, seats } = await createEventAndGetSeats(organizerToken);
+    const generalSeat = seats.find((s) => s.tierName === "General");
+
+    await request(app)
+      .post(`/api/events/${eventId}/seats/${generalSeat._id}/hold`)
+      .set("Authorization", `Bearer ${attendeeToken}`);
+
+    const seatsRes = await request(app).get(`/api/events/${eventId}/seats`);
+    const general = seatsRes.body.meta.tierSummary.find((t) => t.name === "General");
+    const vip = seatsRes.body.meta.tierSummary.find((t) => t.name === "VIP");
+
+    expect(general.available).toBe(1);
+    expect(general.held).toBe(1);
+    expect(vip.available).toBe(2); // untouched - counts are per-tier, not global
+  });
+
+  it("shows a tier as fully sold out (available: 0) once all its seats are booked", async () => {
+    const organizerToken = await registerOrganizer();
+    const { eventId, seats } = await createEventAndGetSeats(organizerToken);
+    const vipSeats = seats.filter((s) => s.tierName === "VIP");
+
+    // Simulate the end state of a completed booking directly at the data
+    // layer. The transactional booking flow itself (Seat -> Booking ->
+    // Ticket -> Event.ticketsSold, all-or-nothing) is covered separately in
+    // bookings.test.js, which runs against a replica set - transactions
+    // aren't available on the standalone instance this file uses.
+    await Seat.updateMany(
+      { _id: { $in: vipSeats.map((s) => s._id) } },
+      { status: "booked", heldBy: null, holdExpiresAt: null }
+    );
+
+    const seatsRes = await request(app).get(`/api/events/${eventId}/seats`);
+    const vip = seatsRes.body.meta.tierSummary.find((t) => t.name === "VIP");
+    expect(vip.available).toBe(0);
+    expect(vip.booked).toBe(2);
   });
 });
 

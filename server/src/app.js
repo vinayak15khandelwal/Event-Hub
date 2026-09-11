@@ -7,6 +7,8 @@ import authRoutes from "./routes/authRoutes.js";
 import eventRoutes from "./routes/eventRoutes.js";
 import seatRoutes from "./routes/seatRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
+import dashboardRoutes from "./routes/dashboardRoutes.js";
+import announcementRoutes from "./routes/announcementRoutes.js";
 
 const app = express();
 
@@ -35,7 +37,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/events/:eventId/seats", seatRoutes);
 app.use("/api/bookings", bookingRoutes);
-// Day 6: app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/events/:eventId/dashboard", dashboardRoutes);
+app.use("/api/events/:eventId/announcements", announcementRoutes);
 // Day 7: app.use("/api/checkin", checkinRoutes);
 
 // --- 404 + error handling (always last) ---

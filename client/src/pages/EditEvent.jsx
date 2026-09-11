@@ -2,6 +2,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchEventById, updateEvent } from "../api/events";
 import EventForm from "../components/EventForm";
+import Spinner from "../components/ui/Spinner";
 
 const EditEvent = () => {
   const { id } = useParams();
@@ -24,15 +25,17 @@ const EditEvent = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[80vh] bg-slate-950 text-slate-400 p-8">Loading...</div>
+      <div className="flex min-h-[80vh] items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+        <Spinner /> <span>Loading...</span>
+      </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-[80vh] bg-slate-950 text-slate-100 p-8">
-        <p>Event not found.</p>
-        <Link to="/organizer" className="text-indigo-400 hover:underline">
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <p className="text-slate-900 dark:text-slate-100">Event not found.</p>
+        <Link to="/organizer" className="text-indigo-600 hover:underline dark:text-indigo-400">
           Back to dashboard
         </Link>
       </div>
@@ -40,8 +43,10 @@ const EditEvent = () => {
   }
 
   return (
-    <div className="min-h-[80vh] bg-slate-950 text-slate-100 p-8">
-      <h1 className="mb-4 text-2xl font-semibold">Edit Event</h1>
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+      <h1 className="mb-4 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+        Edit Event
+      </h1>
       <EventForm
         initialValues={event}
         onSubmit={mutation.mutateAsync}

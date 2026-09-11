@@ -4,6 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EventHub</title>
+    <script>
+      // Applies the saved/system theme before React mounts, so there's no
+      // flash of the wrong theme on first paint. Kept intentionally tiny
+      // and dependency-free - this is the one place a blocking inline
+      // script is worth it.
+      (function () {
+        var saved = localStorage.getItem("eventhub-theme");
+        var theme =
+          saved === "dark" || saved === "light"
+            ? saved
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light";
+        if (theme === "dark") {
+          document.documentElement.classList.add("dark");
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

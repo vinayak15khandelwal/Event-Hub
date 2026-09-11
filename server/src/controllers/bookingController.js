@@ -98,7 +98,17 @@ export const createBooking = asyncHandler(async (req, res) => {
           qrCodeDataUrl,
         });
       }
-      tickets = await Ticket.create(ticketDocs, { session });
+      // Mongoose requires `ordered: true` when create() is given a session
+      // plus an array of more than one document - without it, this throws
+      // "Cannot call create() with a session and multiple documents unless
+      // ordered: true is set" for any booking covering 2+ seats. A single
+      // seat booking never hit this (array length 1), which is why it went
+      // unnoticed until a mixed-tier, multi-seat booking exercised it.
+      // ordered: true is also the behavior we want here regardless: if any
+      // one ticket fails to insert, the rest shouldn't either - that's what
+      // keeps this consistent with the rest of the transaction's
+      // all-or-nothing semantics.
+      tickets = await Ticket.create(ticketDocs, { session, ordered: true });
 
       // Step 5: keep the event's fast-read counter (used by listing cards)
       // in sync with the source of truth (actual Seat statuses)
@@ -108,6 +118,14 @@ export const createBooking = asyncHandler(async (req, res) => {
         { session }
       );
     });
+  } catch (err) {
+    // Transaction failures (write conflicts, driver-level restrictions,
+    // anything not explicitly thrown above with its own statusCode) were
+    // previously invisible beyond a generic 500 response. Logging the real
+    // error here costs nothing and is what actually shows the root cause
+    // the next time something goes wrong in this flow.
+    console.error("Booking transaction failed:", err);
+    throw err;
   } finally {
     await session.endSession();
   }
