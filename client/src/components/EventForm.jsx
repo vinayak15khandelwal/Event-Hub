@@ -89,7 +89,7 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
         {error && <Alert variant="error">{error}</Alert>}
 
         <div>
-          <label className={labelClasses}>Event name</label>
+          <label className={labelClasses}>Event name <span className="text-rose-500">*</span></label>
           <input
             name="name"
             required
@@ -128,7 +128,7 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
           </div>
 
           <div>
-            <label className={labelClasses}>Date & time</label>
+            <label className={labelClasses}>Date & time <span className="text-rose-500">*</span></label>
             <input
               type="datetime-local"
               name="date"
@@ -142,7 +142,7 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelClasses}>Venue</label>
+            <label className={labelClasses}>Venue <span className="text-rose-500">*</span></label>
             <input
               name="venue"
               required
@@ -153,7 +153,7 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
           </div>
 
           <div>
-            <label className={labelClasses}>Capacity</label>
+            <label className={labelClasses}>Capacity <span className="text-rose-500">*</span></label>
             <input
               type="number"
               name="capacity"
@@ -174,7 +174,7 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
             <button
               type="button"
               onClick={addTier}
-              className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+              className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400"
             >
               + Add tier
             </button>
@@ -212,7 +212,7 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
                   <button
                     type="button"
                     onClick={() => removeTier(i)}
-                    className="col-span-1 text-red-500 hover:text-red-400"
+                    className="col-span-1 text-rose-500 hover:text-rose-400"
                     aria-label="Remove tier"
                   >
                     ✕

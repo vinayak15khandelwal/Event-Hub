@@ -1,6 +1,8 @@
-const Card = ({ className = "", children, ...props }) => (
+const Card = ({ hover = false, glass = false, className = "", children, ...props }) => (
   <div
-    className={`rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${className}`}
+    className={`surface-card ${hover ? "surface-card-hover" : ""} ${
+      glass ? "surface-glass" : ""
+    } ${className}`}
     {...props}
   >
     {children}

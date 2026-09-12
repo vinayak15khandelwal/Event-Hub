@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchEventById, updateEvent } from "../api/events";
 import EventForm from "../components/EventForm";
 import Spinner from "../components/ui/Spinner";
+import { toast } from "../store/toastStore";
 
 const EditEvent = () => {
   const { id } = useParams();
@@ -19,6 +20,7 @@ const EditEvent = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-events"] });
       queryClient.invalidateQueries({ queryKey: ["event", id] });
+      toast.success("Event updated");
       navigate("/organizer");
     },
   });
@@ -35,7 +37,7 @@ const EditEvent = () => {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
         <p className="text-slate-900 dark:text-slate-100">Event not found.</p>
-        <Link to="/organizer" className="text-indigo-600 hover:underline dark:text-indigo-400">
+        <Link to="/organizer" className="text-brand-600 hover:underline dark:text-brand-400">
           Back to dashboard
         </Link>
       </div>

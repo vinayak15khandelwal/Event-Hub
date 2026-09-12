@@ -14,3 +14,8 @@ export const fetchBookingById = async (id) => {
   const res = await api.get(`/bookings/${id}`);
   return res.data; // { booking, tickets }
 };
+
+export const cancelBooking = async (id) => {
+  const res = await api.post(`/bookings/${id}/cancel`);
+  return res.data.booking;
+};

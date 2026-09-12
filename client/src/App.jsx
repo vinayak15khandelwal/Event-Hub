@@ -9,6 +9,7 @@ import Register from "./pages/Register";
 import AttendeeDashboard from "./pages/AttendeeDashboard";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
 import OrganizerEventDashboard from "./pages/OrganizerEventDashboard";
+import CheckIn from "./pages/CheckIn";
 import Events from "./pages/Events";
 import EventDetails from "./pages/EventDetails";
 import CreateEvent from "./pages/CreateEvent";
@@ -89,6 +90,14 @@ function App() {
           element={
             <ProtectedRoute roles={["organizer"]}>
               <OrganizerEventDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/organizer/events/:id/checkin"
+          element={
+            <ProtectedRoute roles={["organizer"]}>
+              <CheckIn />
             </ProtectedRoute>
           }
         />

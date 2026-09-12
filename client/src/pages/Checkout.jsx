@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { fetchEventById } from "../api/events";
@@ -9,6 +9,46 @@ import Button from "../components/ui/Button";
 import Alert from "../components/ui/Alert";
 import Spinner from "../components/ui/Spinner";
 import { inputClasses, labelClasses } from "../components/ui/formClasses";
+
+const HoldCountdown = ({ heldSeats }) => {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const soonestExpiry = useMemo(() => {
+    const times = heldSeats
+      .map((s) => (s.holdExpiresAt ? new Date(s.holdExpiresAt).getTime() : null))
+      .filter(Boolean);
+    return times.length > 0 ? Math.min(...times) : null;
+  }, [heldSeats]);
+
+  if (!soonestExpiry) return null;
+
+  const secondsLeft = Math.max(0, Math.floor((soonestExpiry - now) / 1000));
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
+
+  const level = secondsLeft <= 20 ? "danger" : secondsLeft <= 60 ? "warning" : "normal";
+  const styles = {
+    normal: "border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-900 dark:bg-brand-950/60 dark:text-brand-300",
+    warning: "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/60 dark:text-amber-300",
+    danger: "border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-900 dark:bg-rose-950/60 dark:text-rose-300 animate-pop",
+  };
+
+  return (
+    <div
+      className={`mb-6 flex items-center justify-between rounded-lg border px-4 py-3 text-sm font-medium ${styles[level]}`}
+    >
+      <span>Your seat hold expires in</span>
+      <span className="font-mono text-base font-bold">
+        {minutes}:{String(seconds).padStart(2, "0")}
+      </span>
+    </div>
+  );
+};
 
 const Checkout = () => {
   const { id: eventId } = useParams();
@@ -51,10 +91,7 @@ const Checkout = () => {
         <p className="text-slate-900 dark:text-slate-100">
           No seats selected for checkout.
         </p>
-        <Link
-          to={`/events/${eventId}`}
-          className="text-indigo-600 hover:underline dark:text-indigo-400"
-        >
+        <Link to={`/events/${eventId}`} className="text-accent hover:underline">
           Back to seat selection
         </Link>
       </div>
@@ -88,16 +125,16 @@ const Checkout = () => {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+    <div className="page-container py-8 sm:py-10">
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
         Checkout
       </h1>
 
-      <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+      <HoldCountdown heldSeats={heldSeats} />
+
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card className="p-5 sm:p-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Order Summary
-          </h2>
+          <h2 className="section-heading">Order Summary</h2>
 
           {isLoading ? (
             <div className="mt-4 flex items-center gap-2 text-slate-500 dark:text-slate-400">
@@ -105,14 +142,17 @@ const Checkout = () => {
             </div>
           ) : (
             <>
-              <p className="mt-3 font-medium text-slate-900 dark:text-slate-100">
+              <p className="mt-3 font-semibold text-slate-900 dark:text-slate-100">
                 {event.name}
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400">
                 {new Date(event.date).toLocaleString()} · {event.venue}
               </p>
 
-              <div className="mt-4 divide-y divide-slate-200 dark:divide-slate-800">
+              <h3 className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-500">
+                Selected Seats
+              </h3>
+              <div className="mt-2 divide-y divide-slate-200 dark:divide-slate-800">
                 {heldSeats.map((seat) => (
                   <div
                     key={seat._id}
@@ -138,7 +178,7 @@ const Checkout = () => {
                   <span>Subtotal</span>
                   <span>₹{total}</span>
                 </div>
-                <div className="flex items-center justify-between text-lg font-semibold text-slate-900 dark:text-slate-100">
+                <div className="flex items-center justify-between text-lg font-bold text-slate-900 dark:text-slate-100">
                   <span>Total</span>
                   <span>₹{total}</span>
                 </div>
@@ -148,13 +188,9 @@ const Checkout = () => {
         </Card>
 
         <Card className="p-5 sm:p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              Payment
-            </h2>
-          </div>
-          <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-            Mock payment — no real card is charged.
+          <h2 className="section-heading">Payment</h2>
+          <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+            🔒 Mock payment — no real card is charged.
           </p>
 
           <form onSubmit={handlePayment} className="mt-4 space-y-4">
@@ -169,7 +205,7 @@ const Checkout = () => {
                 placeholder="Priya Sharma"
               />
               {fieldErrors.name && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
                   {fieldErrors.name}
                 </p>
               )}
@@ -186,7 +222,7 @@ const Checkout = () => {
                 className={inputClasses}
               />
               {fieldErrors.number && (
-                <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
                   {fieldErrors.number}
                 </p>
               )}
@@ -212,7 +248,7 @@ const Checkout = () => {
                   placeholder="123"
                 />
                 {fieldErrors.cvv && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                  <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">
                     {fieldErrors.cvv}
                   </p>
                 )}
@@ -221,16 +257,11 @@ const Checkout = () => {
 
             <Button
               type="submit"
-              disabled={mutation.isPending}
-              className="w-full py-3"
+              loading={mutation.isPending}
+              size="lg"
+              className="w-full"
             >
-              {mutation.isPending ? (
-                <>
-                  <Spinner className="h-4 w-4" /> Processing...
-                </>
-              ) : (
-                `Pay ₹${total}`
-              )}
+              {mutation.isPending ? "Processing..." : `Pay ₹${total}`}
             </Button>
           </form>
         </Card>

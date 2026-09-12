@@ -3,19 +3,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchSeats, holdSeat as holdSeatApi, releaseSeat as releaseSeatApi } from "../api/events";
 import socket from "../lib/socket";
 import useAuthStore from "../store/authStore";
+import { toast } from "../store/toastStore";
 import Alert from "./ui/Alert";
 import Spinner from "./ui/Spinner";
 
 const statusStyles = {
   available:
-    "bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300",
-  heldByMe: "bg-indigo-600 text-white cursor-pointer",
+    "bg-slate-200 hover:bg-slate-300 hover:scale-105 text-slate-700 cursor-pointer dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300",
+  heldByMe: "bg-brand-600 text-white cursor-pointer shadow-glow scale-105",
   heldByOther:
     "bg-amber-300/70 text-amber-900 cursor-not-allowed dark:bg-amber-700/60 dark:text-amber-100",
   booked:
-    "bg-red-300/70 text-red-900 cursor-not-allowed dark:bg-red-900/60 dark:text-red-100",
-  dimmed: "opacity-25 pointer-events-none",
+    "bg-rose-300/60 text-rose-900 cursor-not-allowed opacity-80 dark:bg-rose-950 dark:text-rose-300",
+  dimmed: "opacity-20 pointer-events-none",
 };
+
+const legendItems = [
+  { key: "available", label: "Available", dot: "bg-slate-300 dark:bg-slate-700" },
+  { key: "heldByMe", label: "Your hold", dot: "bg-brand-600" },
+  { key: "heldByOther", label: "Held by someone else", dot: "bg-amber-400 dark:bg-amber-600" },
+  { key: "booked", label: "Booked", dot: "bg-rose-400 dark:bg-rose-800" },
+];
 
 const SeatMap = ({ eventId, onHeldSeatsChange, onTierSummaryChange, tierFilter }) => {
   const { user, isAuthenticated } = useAuthStore();
@@ -69,6 +77,7 @@ const SeatMap = ({ eventId, onHeldSeatsChange, onTierSummaryChange, tierFilter }
 
   const seats = useMemo(() => Object.values(seatsById), [seatsById]);
   const seatsPerRow = data?.meta?.seatsPerRow || 10;
+  const availableCount = seats.filter((s) => s.status === "available").length;
 
   const seatStatusFor = (seat) => {
     if (seat.status === "booked") return "booked";
@@ -121,6 +130,7 @@ const SeatMap = ({ eventId, onHeldSeatsChange, onTierSummaryChange, tierFilter }
       } else if (displayStatus === "heldByMe") {
         const updated = await releaseSeatApi(eventId, seat._id);
         setSeatsById((prev) => ({ ...prev, [seat._id]: updated }));
+        toast.info(`Seat ${seat.label} released`);
       }
     } catch (err) {
       setActionError(err.response?.data?.message || "That didn't go through - try again.");
@@ -154,18 +164,16 @@ const SeatMap = ({ eventId, onHeldSeatsChange, onTierSummaryChange, tierFilter }
         </Alert>
       )}
 
-      <div className="mb-4 flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-slate-200 dark:bg-slate-800" /> Available
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-indigo-600" /> Your hold
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-amber-300/70 dark:bg-amber-700/60" /> Held by someone else
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-sm bg-red-300/70 dark:bg-red-900/60" /> Booked
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-4 text-xs text-slate-500 dark:text-slate-400">
+          {legendItems.map((item) => (
+            <span key={item.key} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-full ${item.dot}`} /> {item.label}
+            </span>
+          ))}
+        </div>
+        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+          {availableCount} of {seats.length} seats available
         </span>
       </div>
 
@@ -190,7 +198,7 @@ const SeatMap = ({ eventId, onHeldSeatsChange, onTierSummaryChange, tierFilter }
                 title={`${seat.label} - ${seat.tierName}`}
                 disabled={pendingSeatId === seat._id}
                 onClick={() => handleSeatClick(seat)}
-                className={`relative flex h-9 w-full items-center justify-center rounded-md text-[10px] font-medium transition-colors disabled:opacity-50 ${statusStyles[displayStatus]} ${
+                className={`relative flex h-9 w-full items-center justify-center rounded-md text-[10px] font-medium transition-all duration-150 disabled:opacity-50 ${statusStyles[displayStatus]} ${
                   isDimmed ? statusStyles.dimmed : ""
                 }`}
               >

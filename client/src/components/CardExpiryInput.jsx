@@ -12,7 +12,7 @@ const YEARS = Array.from({ length: 11 }, (_, i) => {
 });
 
 const selectClasses =
-  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100";
 
 // Validates that a month/year pair is not already in the past. This is the
 // mock payment card's expiry only - has no relationship to event date/time.
@@ -58,7 +58,7 @@ const CardExpiryInput = ({ month, year, onChange, error }) => {
         </select>
       </div>
       {error && (
-        <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>
+        <p className="mt-1 text-xs text-rose-600 dark:text-rose-400">{error}</p>
       )}
     </div>
   );

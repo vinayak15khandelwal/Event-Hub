@@ -10,5 +10,81 @@ body,
 
 body {
   @apply bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100;
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
   transition: background-color 150ms ease, color 150ms ease;
+}
+
+@layer components {
+  /* --- Surfaces --- */
+  .surface-base {
+    @apply bg-slate-50 dark:bg-slate-950;
+  }
+  .surface-elevated {
+    @apply bg-white dark:bg-slate-900;
+  }
+  .surface-card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900;
+  }
+  .surface-card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-elevated dark:hover:border-slate-700;
+  }
+  .surface-glass {
+    @apply border border-white/20 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/60;
+  }
+
+  /* --- Text --- */
+  .text-heading {
+    @apply font-bold tracking-tight text-slate-900 dark:text-slate-50;
+  }
+  .text-muted {
+    @apply text-slate-500 dark:text-slate-400;
+  }
+  .text-meta {
+    @apply text-xs text-slate-500 dark:text-slate-500;
+  }
+  .text-accent {
+    @apply text-brand-600 dark:text-brand-400;
+  }
+  .gradient-text {
+    @apply bg-gradient-to-r from-brand-600 via-violet-500 to-brand-500 bg-clip-text text-transparent dark:from-brand-400 dark:via-violet-400 dark:to-brand-400;
+  }
+
+  /* --- Structure --- */
+  .section-heading {
+    @apply text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400;
+  }
+  .divider {
+    @apply border-slate-200 dark:border-slate-800;
+  }
+  .page-container {
+    @apply mx-auto max-w-6xl px-4 sm:px-6;
+  }
+
+  /* --- Buttons (base only - variants stay in Button.jsx) --- */
+  .btn-base {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100 dark:focus-visible:ring-offset-slate-950;
+  }
+
+  /* --- Inputs --- */
+  .input-base {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 outline-none transition-colors focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:placeholder-slate-500;
+  }
+}
+
+/* Ambient hero glow blobs - pure CSS, no external images */
+.bg-glow-blob {
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.35), transparent);
+  filter: blur(40px);
+}
+
+/* Respect the user's motion preference across the whole app */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

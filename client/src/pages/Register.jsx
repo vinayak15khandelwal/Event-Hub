@@ -29,8 +29,9 @@ const Register = () => {
   };
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4">
-      <Card className="w-full max-w-sm p-6">
+    <div className="relative flex min-h-[80vh] items-center justify-center overflow-hidden px-4">
+      <div className="bg-glow-blob pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 opacity-40" aria-hidden="true" />
+      <Card className="animate-scale-in relative w-full max-w-sm p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             Create an account
@@ -85,7 +86,7 @@ const Register = () => {
                   onClick={() => setForm({ ...form, role: r })}
                   className={`rounded-lg border px-3 py-2 text-sm capitalize transition-colors ${
                     form.role === r
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300"
+                      ? "border-brand-500 bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300"
                       : "border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
                   }`}
                 >
@@ -95,13 +96,13 @@ const Register = () => {
             </div>
           </div>
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button type="submit" loading={submitting} className="w-full">
             {submitting ? "Creating account..." : "Sign up"}
           </Button>
 
           <p className="text-center text-sm text-slate-500 dark:text-slate-400">
             Already have an account?{" "}
-            <Link to="/login" className="text-indigo-600 hover:underline dark:text-indigo-400">
+            <Link to="/login" className="text-brand-600 hover:underline dark:text-brand-400">
               Log in
             </Link>
           </p>

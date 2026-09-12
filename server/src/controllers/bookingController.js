@@ -182,3 +182,83 @@ export const getBookingById = asyncHandler(async (req, res) => {
 
   res.json({ success: true, booking, tickets });
 });
+
+// @desc   Cancel a booking - frees its seats, cancels its tickets, refunds (mock)
+// @route  POST /api/bookings/:id/cancel
+// @access Private (owner only)
+export const cancelBooking = asyncHandler(async (req, res) => {
+  const booking = await Booking.findById(req.params.id).populate("event", "date");
+
+  if (!booking) {
+    res.status(404);
+    throw new Error("Booking not found");
+  }
+
+  if (booking.user.toString() !== req.user._id.toString()) {
+    res.status(403);
+    throw new Error("You do not have access to this booking");
+  }
+
+  if (booking.status === "cancelled") {
+    res.status(400);
+    throw new Error("This booking is already cancelled");
+  }
+
+  if (booking.event?.date && new Date(booking.event.date) < new Date()) {
+    res.status(400);
+    throw new Error("Can't cancel a booking after the event has already happened");
+  }
+
+  const tickets = await Ticket.find({ booking: booking._id });
+  if (tickets.some((t) => t.status === "checked-in")) {
+    res.status(400);
+    throw new Error("Can't cancel - one or more tickets have already been checked in");
+  }
+
+  // Reverses exactly what createBooking did, atomically: seats go back to
+  // available (freeing them for other attendees), tickets are cancelled,
+  // the booking is marked cancelled + refunded (mock - no real payment
+  // gateway to reverse), and the event's ticketsSold counter is decremented
+  // to match. Same reasoning as the booking transaction: this touches
+  // Seat + Booking + Ticket + Event together, so it needs to be all-or-nothing.
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await Seat.updateMany(
+        { _id: { $in: booking.seats } },
+        { status: "available", heldBy: null, holdExpiresAt: null },
+        { session }
+      );
+      await Ticket.updateMany(
+        { booking: booking._id },
+        { status: "cancelled" },
+        { session }
+      );
+      booking.status = "cancelled";
+      booking.paymentStatus = "refunded";
+      await booking.save({ session });
+      await Event.findByIdAndUpdate(
+        booking.event._id,
+        { $inc: { ticketsSold: -tickets.length } },
+        { session }
+      );
+    });
+  } finally {
+    await session.endSession();
+  }
+
+  // Freed seats should show as available in real time for anyone else
+  // currently viewing this event's seat map.
+  const io = getIO();
+  if (io) {
+    io.to(`event:${booking.event._id}`).emit("seat:update", {
+      seats: booking.seats.map((seatId) => ({
+        seatId,
+        status: "available",
+        holdExpiresAt: null,
+      })),
+    });
+  }
+
+  res.json({ success: true, booking });
+});

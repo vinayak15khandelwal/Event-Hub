@@ -274,3 +274,83 @@ describe("GET /api/bookings/mine and /api/bookings/:id", () => {
     expect(res.statusCode).toBe(403);
   });
 });
+
+describe("POST /api/bookings/:id/cancel", () => {
+  it("cancels a booking, frees its seat, refunds (mock), and decrements ticketsSold", async () => {
+    const { attendee, eventId, seat } = await setupEventWithHeldSeat();
+    const bookingRes = await request(app)
+      .post("/api/bookings")
+      .set("Authorization", `Bearer ${attendee.token}`)
+      .send({ eventId, seatIds: [seat._id] });
+
+    const res = await request(app)
+      .post(`/api/bookings/${bookingRes.body.booking._id}/cancel`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.booking.status).toBe("cancelled");
+    expect(res.body.booking.paymentStatus).toBe("refunded");
+
+    const freedSeat = await Seat.findById(seat._id);
+    expect(freedSeat.status).toBe("available");
+    expect(freedSeat.heldBy).toBeNull();
+
+    const cancelledTicket = await Ticket.findOne({ booking: bookingRes.body.booking._id });
+    expect(cancelledTicket.status).toBe("cancelled");
+
+    const event = await Event.findById(eventId);
+    expect(event.ticketsSold).toBe(0);
+  });
+
+  it("frees the seat for someone else to book again after cancellation", async () => {
+    const { attendee, eventId, seat } = await setupEventWithHeldSeat();
+    const bookingRes = await request(app)
+      .post("/api/bookings")
+      .set("Authorization", `Bearer ${attendee.token}`)
+      .send({ eventId, seatIds: [seat._id] });
+
+    await request(app)
+      .post(`/api/bookings/${bookingRes.body.booking._id}/cancel`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+
+    const otherAttendee = await registerAttendee("other3@example.com");
+    const holdRes = await request(app)
+      .post(`/api/events/${eventId}/seats/${seat._id}/hold`)
+      .set("Authorization", `Bearer ${otherAttendee.token}`);
+
+    expect(holdRes.statusCode).toBe(200);
+  });
+
+  it("rejects cancelling an already-cancelled booking", async () => {
+    const { attendee, eventId, seat } = await setupEventWithHeldSeat();
+    const bookingRes = await request(app)
+      .post("/api/bookings")
+      .set("Authorization", `Bearer ${attendee.token}`)
+      .send({ eventId, seatIds: [seat._id] });
+
+    await request(app)
+      .post(`/api/bookings/${bookingRes.body.booking._id}/cancel`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+
+    const res = await request(app)
+      .post(`/api/bookings/${bookingRes.body.booking._id}/cancel`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("blocks a different user from cancelling someone else's booking", async () => {
+    const { attendee, eventId, seat } = await setupEventWithHeldSeat();
+    const bookingRes = await request(app)
+      .post("/api/bookings")
+      .set("Authorization", `Bearer ${attendee.token}`)
+      .send({ eventId, seatIds: [seat._id] });
+
+    const otherAttendee = await registerAttendee("other4@example.com");
+    const res = await request(app)
+      .post(`/api/bookings/${bookingRes.body.booking._id}/cancel`)
+      .set("Authorization", `Bearer ${otherAttendee.token}`);
+
+    expect(res.statusCode).toBe(403);
+  });
+});

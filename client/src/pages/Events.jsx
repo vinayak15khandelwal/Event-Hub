@@ -7,7 +7,7 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Alert from "../components/ui/Alert";
 import EmptyState from "../components/ui/EmptyState";
-import Spinner from "../components/ui/Spinner";
+import { SkeletonCard } from "../components/ui/Skeleton";
 import { inputClasses } from "../components/ui/formClasses";
 
 const Events = () => {
@@ -31,12 +31,15 @@ const Events = () => {
   };
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+    <div className="page-container py-8 sm:py-10">
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
         Discover Events
       </h1>
+      <p className="mt-1 text-slate-500 dark:text-slate-400">
+        Filter by category, date, or search to find your next conference.
+      </p>
 
-      <Card className="mt-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-4">
+      <Card className="mt-6 grid grid-cols-1 gap-3 p-4 sm:grid-cols-4">
         <input
           name="search"
           placeholder="Search by name or venue..."
@@ -66,9 +69,17 @@ const Events = () => {
         />
       </Card>
 
+      {data && !isLoading && (
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-500">
+          {data.pagination.total} event{data.pagination.total !== 1 ? "s" : ""} found
+        </p>
+      )}
+
       {isLoading && (
-        <div className="mt-10 flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
-          <Spinner /> <span>Loading events...</span>
+        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       )}
 
@@ -95,9 +106,10 @@ const Events = () => {
           )}
 
           {data.pagination.pages > 1 && (
-            <div className="mt-6 flex items-center justify-center gap-3 text-sm">
+            <div className="mt-8 flex items-center justify-center gap-3 text-sm">
               <Button
                 variant="secondary"
+                size="sm"
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}
                 disabled={page === 1}
               >
@@ -108,6 +120,7 @@ const Events = () => {
               </span>
               <Button
                 variant="secondary"
+                size="sm"
                 onClick={() => setPage((p) => Math.min(p + 1, data.pagination.pages))}
                 disabled={page === data.pagination.pages}
               >

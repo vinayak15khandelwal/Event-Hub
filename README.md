@@ -14,8 +14,8 @@ Code A Nova Full Stack Development internship.
 - [x] Seat selection + real-time availability (Day 4)
 - [x] Ticket booking + QR generation (Day 5)
 - [x] Organizer dashboard (Day 6)
-- [ ] QR check-in (Day 7)
-- [ ] Attendee portal (Day 8)
+- [x] QR check-in (Day 7)
+- [x] Attendee portal (Day 8)
 - [ ] Testing + responsive audit (Day 9)
 - [ ] Deployment + demo (Day 10)
 
@@ -132,6 +132,31 @@ A UI/UX + price-tier correctness pass on top of Days 1-5, before starting Day 6.
 - **Attendee roster**: `GET /api/events/:id/dashboard/attendees` returns each ticket joined with the attendee's name/email and seat label. The same endpoint doubles as CSV export via `?format=csv` (one code path, not two) - the client requests it with `responseType: "blob"` through the authenticated axios instance and triggers a real file download, rather than a plain link (which would be more fragile across cookie/CORS setups).
 - **Announcements**: organizer sends via `POST /api/events/:id/announcements` (owner-checked), persisted to an `Announcement` collection so any ticket-holder can read it later, *and* pushed live over the same per-event Socket.io room the seat map already uses. There's no real email/SMS gateway in this project's scope, so this is the honest mock-equivalent of "sent" - stated plainly rather than implied to be a real notification.
 - **Authorization**: both new controllers reuse the same `assertIsOwner` helper from `eventController.js` (now exported) rather than re-implementing ownership checks - an organizer can only see analytics/roster/announcements for events they own; attendees are blocked from all three except reading announcements for events they hold a ticket to.
+
+## Design System Pass (frontend only, Days 1-6 untouched)
+
+A visual/UX pass to move the app from "functional CRUD prototype" toward a cohesive, premium-feeling SaaS product - zero backend changes, zero new npm dependencies.
+
+- **Design tokens**: `tailwind.config.js` gained a `brand` (indigo/violet) shade scale, `boxShadow.glow`/`elevated`, a `grid-pattern` background image, and a small motion system (`fade-in-up`, `scale-in`, `pop`, `check-draw`, `shimmer` keyframes). `index.css` gained a semantic utility layer (`surface-card`, `surface-glass`, `text-heading`, `gradient-text`, `section-heading`, `input-base`, etc.) so pages compose from shared tokens instead of scattering `bg-slate-X dark:bg-slate-Y` pairs independently. `prefers-reduced-motion: reduce` is respected globally.
+- **UI kit additions**: `Skeleton`/`SkeletonCard`, `StatCard`, `SectionHeader`, `PageContainer`, plus a lightweight `toastStore` (zustand, same pattern as auth/theme) + `ToastContainer` - no toast library added.
+- **Semantic color coding is consistent app-wide**: available/success = emerald, limited/warning = amber, sold out/danger = rose, info = sky, primary/brand = indigo-violet. Seat map, price tier cards, event cards, and badges all use the same mapping.
+- **Motion is deliberate, not decorative**: hero/card entrance (`fade-in-up`), modal-like scale-in on auth cards, a pulse on the checkout countdown once it turns critical, an animated SVG checkmark on the confirmation page, a shimmer skeleton for loading states - all CSS/Tailwind, no animation library.
+- **Real data only**: every stat card (attendee dashboard's ticket/spend totals, organizer dashboard's aggregate KPIs) is computed client-side from fields the existing APIs already return - nothing invented.
+
+## QR Check-In (Day 7)
+
+- **Check-in validates the same signed token from Day 5** — `POST /api/events/:id/checkin` calls `verifyTicketToken` on whatever string comes in (scanned or manually pasted), so a forged or tampered code fails signature verification before any database lookup happens.
+- **Three checks beyond signature validity**: the token's embedded `eventId` must match the event being checked into (a ticket for Event A can't be used to check into Event B), the ticket must actually belong to that event in the database (defense in depth beyond the token payload), and it must not already be `checked-in` or `cancelled`.
+- **Real-time count**: on every successful check-in, `checkedInCount`/`totalTickets` are recomputed from the `Ticket` collection and broadcast via `checkin:update` to the event's Socket.io room — same per-event room pattern as seat availability and announcements.
+- **Camera scanning uses the browser's native `BarcodeDetector` API** — no QR-decoding library added. Where it's unsupported (notably Safari/Firefox at time of writing), the UI says so plainly and manual token entry always works as the alternative, going through the identical verification path.
+
+## Attendee Portal (Day 8)
+
+- **Event discovery, upcoming vs past**: event search/category/date filtering already existed from Day 3 (`Events.jsx`); the Attendee Dashboard now adds Upcoming/Past tabs, both derived purely from comparing each booking's `event.date` to the current time client-side — no new backend field needed.
+- **Cancellation is a genuine reversal transaction**, not a soft flag: `POST /api/bookings/:id/cancel` touches the same four things Day 5's booking created — Seat (back to `available`), Ticket(s) (`cancelled`), Booking (`cancelled` + `paymentStatus: "refunded"`), and `Event.ticketsSold` (decremented) — all inside one `session.withTransaction()`, for the same reason the original booking needed one: partial success here would either strand a seat as permanently unavailable or silently oversell it back to someone else.
+- **Guards**: can't cancel a booking that's already cancelled, can't cancel after the event has already happened, and can't cancel if any of its tickets have already been checked in (Day 7) — cancelling a walked-in attendee's ticket after the fact doesn't make sense.
+- **"Refund simulated"** is stated plainly in the UI — `paymentStatus: "refunded"` is a mock flag, consistent with Day 5's mock payment; there's no real payment gateway to reverse.
+- **Freed seats update in real time** — the same `seat:update` Socket.io event Day 4's holds use is emitted on cancellation too, so anyone viewing that event's seat map sees the seat become available again immediately.
 
 ## Data Model
 

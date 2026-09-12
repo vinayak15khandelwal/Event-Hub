@@ -24,10 +24,11 @@ const Login = () => {
   };
 
   return (
-    <div className="flex min-h-[80vh] items-center justify-center px-4">
-      <Card className="w-full max-w-sm p-6">
+    <div className="relative flex min-h-[80vh] items-center justify-center overflow-hidden px-4">
+      <div className="bg-glow-blob pointer-events-none absolute -top-20 left-1/2 h-72 w-72 -translate-x-1/2 opacity-40" aria-hidden="true" />
+      <Card className="animate-scale-in relative w-full max-w-sm p-6">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
             Log in
           </h1>
 
@@ -57,13 +58,13 @@ const Login = () => {
             />
           </div>
 
-          <Button type="submit" disabled={submitting} className="w-full">
+          <Button type="submit" loading={submitting} className="w-full">
             {submitting ? "Logging in..." : "Log in"}
           </Button>
 
           <p className="text-center text-sm text-slate-500 dark:text-slate-400">
             No account?{" "}
-            <Link to="/register" className="text-indigo-600 hover:underline dark:text-indigo-400">
+            <Link to="/register" className="text-brand-600 hover:underline dark:text-brand-400">
               Sign up
             </Link>
           </p>

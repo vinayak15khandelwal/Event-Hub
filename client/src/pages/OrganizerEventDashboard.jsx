@@ -4,24 +4,15 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchEventById } from "../api/events";
 import { fetchEventAnalytics, fetchEventAttendees, downloadAttendeesCsv } from "../api/dashboard";
 import { fetchAnnouncements, sendAnnouncement } from "../api/announcements";
+import { toast } from "../store/toastStore";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
+import StatCard from "../components/ui/StatCard";
 import Alert from "../components/ui/Alert";
 import Spinner from "../components/ui/Spinner";
 import EmptyState from "../components/ui/EmptyState";
 import RevenueChart from "../components/RevenueChart";
 import { inputClasses, labelClasses } from "../components/ui/formClasses";
-
-const StatCard = ({ label, value }) => (
-  <Card className="p-4">
-    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-      {label}
-    </p>
-    <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-      {value}
-    </p>
-  </Card>
-);
 
 const OrganizerEventDashboard = () => {
   const { id: eventId } = useParams();
@@ -54,13 +45,18 @@ const OrganizerEventDashboard = () => {
     onSuccess: () => {
       setAnnouncementForm({ subject: "", message: "" });
       queryClient.invalidateQueries({ queryKey: ["announcements", eventId] });
+      toast.success("Announcement sent to all attendees");
     },
+    onError: () => toast.error("Failed to send announcement"),
   });
 
   const handleExport = async () => {
     setDownloading(true);
     try {
       await downloadAttendeesCsv(eventId, event?.name);
+      toast.success("CSV downloaded");
+    } catch {
+      toast.error("Failed to export CSV");
     } finally {
       setDownloading(false);
     }
@@ -72,22 +68,22 @@ const OrganizerEventDashboard = () => {
   };
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      <Link
-        to="/organizer"
-        className="text-sm text-indigo-600 hover:underline dark:text-indigo-400"
-      >
+    <div className="page-container py-8 sm:py-10">
+      <Link to="/organizer" className="text-sm font-medium text-accent hover:underline">
         ← Back to My Events
       </Link>
-      <h1 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-        {event?.name || "Event Dashboard"}
-      </h1>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+          {event?.name || "Event Dashboard"}
+        </h1>
+        <Link to={`/organizer/events/${eventId}/checkin`}>
+          <Button variant="secondary">Check-In Scanner</Button>
+        </Link>
+      </div>
 
       {/* Analytics */}
       <section className="mt-6">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Analytics
-        </h2>
+        <h2 className="section-heading mb-3">Analytics</h2>
         {analyticsLoading ? (
           <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
             <Spinner /> <span>Loading analytics...</span>
@@ -96,14 +92,19 @@ const OrganizerEventDashboard = () => {
           analytics && (
             <>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <StatCard label="Total Revenue" value={`₹${analytics.totalRevenue}`} />
-                <StatCard label="Tickets Sold" value={`${analytics.ticketsSold}/${analytics.capacity}`} />
-                <StatCard label="Sold %" value={`${analytics.soldPercentage}%`} />
-                <StatCard label="Bookings" value={analytics.bookingsCount} />
+                <StatCard label="Total Revenue" value={`₹${analytics.totalRevenue}`} accent="emerald" icon="₹" />
+                <StatCard
+                  label="Tickets Sold"
+                  value={`${analytics.ticketsSold}/${analytics.capacity}`}
+                  accent="violet"
+                  icon="🎟️"
+                />
+                <StatCard label="Sold %" value={`${analytics.soldPercentage}%`} accent="brand" icon="📈" />
+                <StatCard label="Bookings" value={analytics.bookingsCount} accent="sky" icon="🧾" />
               </div>
 
               <Card className="mt-4 p-5">
-                <h3 className="mb-3 text-sm font-medium text-slate-600 dark:text-slate-400">
+                <h3 className="mb-4 text-sm font-semibold text-slate-700 dark:text-slate-300">
                   Revenue by Tier
                 </h3>
                 <RevenueChart revenueByTier={analytics.revenueByTier} />
@@ -116,17 +117,10 @@ const OrganizerEventDashboard = () => {
       {/* Attendee roster */}
       <section className="mt-8">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            Attendee Roster
-          </h2>
+          <h2 className="section-heading">Attendee Roster</h2>
           {attendees && attendees.length > 0 && (
-            <Button
-              variant="secondary"
-              onClick={handleExport}
-              disabled={downloading}
-              className="px-3 py-1.5 text-xs"
-            >
-              {downloading ? "Preparing CSV..." : "Export CSV"}
+            <Button variant="secondary" size="sm" onClick={handleExport} loading={downloading}>
+              {downloading ? "Preparing..." : "Export CSV"}
             </Button>
           )}
         </div>
@@ -138,7 +132,7 @@ const OrganizerEventDashboard = () => {
         )}
 
         {attendees && attendees.length === 0 && (
-          <EmptyState title="No bookings yet" description="Attendees will appear here once tickets are sold." />
+          <EmptyState icon="👥" title="No bookings yet" description="Attendees will appear here once tickets are sold." />
         )}
 
         {attendees && attendees.length > 0 && (
@@ -155,8 +149,8 @@ const OrganizerEventDashboard = () => {
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
                 {attendees.map((a, i) => (
-                  <tr key={i}>
-                    <td className="px-4 py-3 text-slate-900 dark:text-slate-100">{a.name}</td>
+                  <tr key={i} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{a.name}</td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.email}</td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.seatLabel}</td>
                     <td className="px-4 py-3 text-slate-500 dark:text-slate-400">{a.tierName}</td>
@@ -171,14 +165,9 @@ const OrganizerEventDashboard = () => {
 
       {/* Announcements */}
       <section className="mt-8">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-          Send Announcement
-        </h2>
+        <h2 className="section-heading mb-3">Send Announcement</h2>
         <Card className="p-5">
           <form onSubmit={handleSendAnnouncement} className="space-y-3">
-            {announcementMutation.isSuccess && (
-              <Alert variant="success">Announcement sent to all attendees.</Alert>
-            )}
             {announcementMutation.isError && (
               <Alert variant="error">
                 {announcementMutation.error?.response?.data?.message || "Failed to send"}
@@ -207,7 +196,7 @@ const OrganizerEventDashboard = () => {
                 className={inputClasses}
               />
             </div>
-            <Button type="submit" disabled={announcementMutation.isPending}>
+            <Button type="submit" loading={announcementMutation.isPending}>
               {announcementMutation.isPending ? "Sending..." : "Send to Attendees"}
             </Button>
           </form>
@@ -216,12 +205,17 @@ const OrganizerEventDashboard = () => {
         {announcements && announcements.length > 0 && (
           <div className="mt-4 space-y-2">
             {announcements.map((a) => (
-              <Card key={a._id} className="p-4">
-                <p className="font-medium text-slate-900 dark:text-slate-100">{a.subject}</p>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{a.message}</p>
-                <p className="mt-2 text-xs text-slate-500 dark:text-slate-600">
-                  {new Date(a.createdAt).toLocaleString()}
-                </p>
+              <Card key={a._id} className="flex gap-3 p-4">
+                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-600 dark:bg-sky-950 dark:text-sky-400">
+                  📣
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">{a.subject}</p>
+                  <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">{a.message}</p>
+                  <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-600">
+                    {new Date(a.createdAt).toLocaleString()}
+                  </p>
+                </div>
               </Card>
             ))}
           </div>
