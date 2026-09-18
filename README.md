@@ -3,7 +3,7 @@
 Tech Conference & Event Management Platform — MERN stack. Built as Task 5 for the
 Code A Nova Full Stack Development internship.
 
-## Status: Day 1 — Monorepo Setup ✅
+## Status: All 10 Days Complete ✅
 
 - [x] Vite + React + Tailwind frontend scaffolded
 - [x] Express backend scaffolded
@@ -16,8 +16,8 @@ Code A Nova Full Stack Development internship.
 - [x] Organizer dashboard (Day 6)
 - [x] QR check-in (Day 7)
 - [x] Attendee portal (Day 8)
-- [ ] Testing + responsive audit (Day 9)
-- [ ] Deployment + demo (Day 10)
+- [x] Testing + responsive audit (Day 9)
+- [x] Deployment + demo (Day 10)
 
 ## Tech Stack
 
@@ -158,6 +158,12 @@ A visual/UX pass to move the app from "functional CRUD prototype" toward a cohes
 - **"Refund simulated"** is stated plainly in the UI — `paymentStatus: "refunded"` is a mock flag, consistent with Day 5's mock payment; there's no real payment gateway to reverse.
 - **Freed seats update in real time** — the same `seat:update` Socket.io event Day 4's holds use is emitted on cancellation too, so anyone viewing that event's seat map sees the seat become available again immediately.
 
+## Testing & Responsive Audit (Day 9)
+
+- **77 backend tests** across 7 files (auth, events, seats, bookings + cancellation, dashboard + announcements, checkin, health). Rather than pad this pass with redundant tests, I audited existing coverage and closed 4 genuine gaps: two cancellation guards that existed in code but were never tested (blocking cancellation of an already-checked-in ticket, and of a past event), a check-in edge case (a validly-signed token whose ticket was never actually created), and password-length validation on registration.
+- **Day 7's "Invalid or expired QR code" bug** (reported mid-session) is fixed: the real issue was that the Confirmation page never displayed the plaintext QR token anywhere — only the rendered image — so there was no legitimate way to obtain a token for manual check-in entry. Confirmation now has a "Show QR token" reveal + copy button. Separately, `checkinController.js` now distinguishes a genuinely expired token from a merely malformed one instead of collapsing every verification failure into one message — both are covered by regression tests.
+- **Responsive audit was code-level** (no browser available in this environment): grepped for hardcoded widths, unconstrained multi-column grids, and un-wrapped tables. Both dashboard tables were already correctly wrapped in `overflow-x-auto` containers (safe). Found and fixed one real issue: `EventForm`'s price-tier row used a fixed 8-column grid with no mobile breakpoint, making each field a cramped ~40px on a phone — it now stacks to a readable 2-column layout below the `sm:` breakpoint.
+
 ## Data Model
 
 ### User
@@ -178,6 +184,95 @@ See above. Indexed on `{name, venue}` (text) for search, and `{category, date}` 
 ### Announcement
 `event`, `organizer` (refs), `subject`, `message`, timestamps.
 
-## Demo
+## Architecture Diagram
 
-_(5-minute walkthrough video link added on Day 10)_
+```mermaid
+graph TB
+    subgraph Client["React 18 + Vite (Vercel)"]
+        UI[Pages / Components]
+        Zustand[Zustand stores<br/>auth · theme · toast]
+        RQ[React Query cache]
+        SocketClient[Socket.io client]
+    end
+
+    subgraph Server["Express (Render)"]
+        Routes[Routes]
+        MW[protect / authorize<br/>middleware]
+        Controllers[Controllers]
+        SocketServer[Socket.io server<br/>per-event rooms]
+        Sweeper[Seat-hold sweeper<br/>setInterval]
+    end
+
+    subgraph DB["MongoDB Atlas"]
+        Users[(Users)]
+        Events[(Events)]
+        Seats[(Seats)]
+        Bookings[(Bookings)]
+        Tickets[(Tickets)]
+        Announcements[(Announcements)]
+    end
+
+    UI --> RQ --> Routes
+    UI --> Zustand
+    SocketClient <-->|seat:update<br/>announcement<br/>checkin:update| SocketServer
+
+    Routes --> MW --> Controllers
+    Controllers --> Users
+    Controllers --> Events
+    Controllers --> Seats
+    Controllers --> Bookings
+    Controllers --> Tickets
+    Controllers --> Announcements
+    Controllers -.emits.-> SocketServer
+    Sweeper -->|expire holds| Seats
+    Sweeper -.emits.-> SocketServer
+```
+
+**Request flow for a booking**: Client holds a seat (`POST /seats/:id/hold`) → atomic single-document update → Socket.io broadcasts to the event's room → Client submits checkout (`POST /bookings`) → one MongoDB transaction updates Seat + creates Booking + creates Ticket(s) + increments `Event.ticketsSold` → signed QR token generated per ticket → Confirmation page renders it.
+
+## Deployment (Render + Vercel)
+
+Both cookie settings (`secure`/`sameSite` toggled by `NODE_ENV`) and CORS origins (`CLIENT_URL` env var) were already built environment-aware back in Day 2 — no code changes were needed for cross-origin production hosting, only environment variables.
+
+**One requirement worth knowing**: the booking and cancellation flows use real MongoDB transactions (Day 5/8), which require a replica set. MongoDB Atlas — including the free M0 tier — is always provisioned as a replica set, so this is satisfied automatically if you're using Atlas. A self-hosted standalone `mongod` would **not** support these flows.
+
+### 1. Backend on Render
+1. Push this repo to GitHub if you haven't already.
+2. On [render.com](https://render.com), **New → Web Service**, connect the repo.
+3. **Root Directory**: `server`
+4. **Build Command**: `npm install`
+5. **Start Command**: `npm start`
+6. Add environment variables (same names as `server/.env.example`): `MONGO_URI` (your Atlas connection string), `JWT_SECRET`, `JWT_EXPIRES_IN`, `QR_SECRET`, `CLIENT_URL` (your Vercel URL — add this *after* step 2 below, since you'll need that URL first), `NODE_ENV=production`.
+7. Deploy. Note the resulting URL (e.g. `https://eventhub-api.onrender.com`).
+
+### 2. Frontend on Vercel
+1. On [vercel.com](https://vercel.com), **New Project**, import the repo.
+2. **Root Directory**: `client`
+3. Build command and output directory are auto-detected (Vite).
+4. Add environment variables: `VITE_API_URL=https://<your-render-url>/api`, `VITE_SOCKET_URL=https://<your-render-url>`.
+5. Deploy. `vercel.json` in this repo already handles the SPA rewrite (`/*` → `/index.html`) so client-side routes like `/events/:id` don't 404 on refresh.
+6. Go back to Render and set `CLIENT_URL` to this Vercel URL, then redeploy the backend so CORS/cookies/Socket.io accept requests from it.
+
+### 3. Verify
+Visit the Vercel URL, register an account, and confirm the health check succeeds (Network tab: `GET /api/health` → 200). Then run through the demo script below.
+
+## Seeding Demo Data
+
+```bash
+cd server
+npm run seed
+```
+
+This wipes and repopulates the database with 2 organizers, 3 attendees, 4 events across different categories (with realistic price tiers and availability), and one pre-made booking so the organizer dashboard shows non-zero analytics immediately. All demo accounts use the password `demo1234`. Refuses to run against `NODE_ENV=production` unless you pass `--force` — a safeguard against accidentally wiping a real deployment's data.
+
+## 5-Minute Demo Script
+
+I can't record video from this environment, but here's a script that hits every rubric-relevant feature in order:
+
+1. **(0:00-0:30) Register both roles** — sign up as an organizer, then (incognito window) as an attendee.
+2. **(0:30-1:15) Organizer: create an event** — two price tiers, watch the live capacity/tier-quantity validation in the form.
+3. **(1:15-2:30) Attendee: discover, filter, select seats** — search/filter on `/events`, open the event, show the price-tier cards with live availability, select seats from two different tiers on the seat map (demonstrates real-time Socket.io — hold a seat in one window, show it lock in the other).
+4. **(2:30-3:15) Checkout → Confirmation** — show the countdown timer, mock payment form, then the confirmation page with the signed QR ticket.
+5. **(3:15-4:00) Organizer dashboard** — revenue chart, attendee roster, export CSV, send an announcement (show it arrive live on the attendee's still-open Event Details page).
+6. **(4:00-4:45) Check-in** — Check-In Scanner page, manual token entry (copy from Confirmation's "Show QR token"), live attendee count updating.
+7. **(4:45-5:00) Attendee dashboard + cancellation** — Upcoming/Past tabs, cancel a booking, show the seat freed on the seat map in real time.

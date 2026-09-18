@@ -248,6 +248,24 @@ describe("POST /api/events/:eventId/checkin", () => {
 
     expect(res.statusCode).toBe(400);
   });
+
+  it("rejects a validly-signed token whose ticket doesn't actually exist", async () => {
+    const organizer = await registerOrganizer();
+    const eventId = await createEvent(organizer.token);
+
+    // A token that passes signature verification (real secret, real
+    // eventId) but points at a ticket ID that was never created - e.g. a
+    // ticket that was later deleted, or a token nobody actually issued.
+    const phantomTicketId = new mongoose.Types.ObjectId();
+    const qrToken = signTicketToken(phantomTicketId, eventId);
+
+    const res = await request(app)
+      .post(`/api/events/${eventId}/checkin`)
+      .set("Authorization", `Bearer ${organizer.token}`)
+      .send({ token: qrToken });
+
+    expect(res.statusCode).toBe(404);
+  });
 });
 
 describe("GET /api/events/:eventId/checkin/stats", () => {

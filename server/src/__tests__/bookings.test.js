@@ -353,4 +353,44 @@ describe("POST /api/bookings/:id/cancel", () => {
 
     expect(res.statusCode).toBe(403);
   });
+
+  it("blocks cancelling a booking whose ticket has already been checked in", async () => {
+    const { organizerToken, attendee, eventId, seat } = await setupEventWithHeldSeat();
+    const bookingRes = await request(app)
+      .post("/api/bookings")
+      .set("Authorization", `Bearer ${attendee.token}`)
+      .send({ eventId, seatIds: [seat._id] });
+
+    const ticketId = bookingRes.body.tickets[0]._id;
+    await Ticket.findByIdAndUpdate(ticketId, {
+      status: "checked-in",
+      checkedInAt: new Date(),
+    });
+
+    const res = await request(app)
+      .post(`/api/bookings/${bookingRes.body.booking._id}/cancel`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message.toLowerCase()).toContain("checked in");
+  });
+
+  it("blocks cancelling a booking for an event that has already happened", async () => {
+    const { attendee, eventId, seat } = await setupEventWithHeldSeat();
+    const bookingRes = await request(app)
+      .post("/api/bookings")
+      .set("Authorization", `Bearer ${attendee.token}`)
+      .send({ eventId, seatIds: [seat._id] });
+
+    // The event was created with a future date (required by the Event
+    // schema); simulate time having passed by backdating it directly.
+    await Event.findByIdAndUpdate(eventId, { date: daysFromNow(-1) });
+
+    const res = await request(app)
+      .post(`/api/bookings/${bookingRes.body.booking._id}/cancel`)
+      .set("Authorization", `Bearer ${attendee.token}`);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message.toLowerCase()).toContain("already happened");
+  });
 });

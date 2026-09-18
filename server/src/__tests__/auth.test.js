@@ -64,6 +64,13 @@ describe("POST /api/auth/register", () => {
     expect(res.statusCode).toBe(201);
     expect(res.body.user.role).toBe("attendee"); // falls back safely
   });
+
+  it("rejects a password shorter than the schema's minimum length", async () => {
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ ...attendeePayload, password: "abc" });
+    expect(res.statusCode).toBe(400);
+  });
 });
 
 describe("POST /api/auth/login", () => {

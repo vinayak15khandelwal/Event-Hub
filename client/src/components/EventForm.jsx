@@ -182,13 +182,16 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
 
           <div className="space-y-2">
             {form.priceTiers.map((tier, i) => (
-              <div key={i} className="grid grid-cols-8 gap-2">
+              <div
+                key={i}
+                className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-800 sm:grid-cols-8 sm:border-0 sm:p-0"
+              >
                 <input
                   placeholder="Tier name (e.g. General)"
                   required
                   value={tier.name}
                   onChange={(e) => handleTierChange(i, "name", e.target.value)}
-                  className={`col-span-3 ${inputClasses} py-1.5 text-sm`}
+                  className={`col-span-2 sm:col-span-3 ${inputClasses} py-1.5 text-sm`}
                 />
                 <input
                   type="number"
@@ -197,7 +200,7 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
                   min={0}
                   value={tier.price}
                   onChange={(e) => handleTierChange(i, "price", e.target.value)}
-                  className={`col-span-2 ${inputClasses} py-1.5 text-sm`}
+                  className={`${inputClasses} sm:col-span-2 py-1.5 text-sm`}
                 />
                 <input
                   type="number"
@@ -206,16 +209,17 @@ const EventForm = ({ initialValues, onSubmit, submitLabel = "Save Event" }) => {
                   min={1}
                   value={tier.quantity}
                   onChange={(e) => handleTierChange(i, "quantity", e.target.value)}
-                  className={`col-span-2 ${inputClasses} py-1.5 text-sm`}
+                  className={`${inputClasses} sm:col-span-2 py-1.5 text-sm`}
                 />
                 {form.priceTiers.length > 1 && (
                   <button
                     type="button"
                     onClick={() => removeTier(i)}
-                    className="col-span-1 text-rose-500 hover:text-rose-400"
+                    className="col-span-2 justify-self-start text-sm text-rose-500 hover:text-rose-400 sm:col-span-1 sm:justify-self-center"
                     aria-label="Remove tier"
                   >
-                    ✕
+                    <span className="sm:hidden">Remove tier</span>
+                    <span className="hidden sm:inline">✕</span>
                   </button>
                 )}
               </div>
