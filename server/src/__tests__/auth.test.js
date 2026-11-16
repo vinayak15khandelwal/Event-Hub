@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import app from "../app.js";
+import User from "../models/User.js";
 
 process.env.JWT_SECRET = process.env.JWT_SECRET || "test_secret_for_jest_only";
 process.env.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
@@ -144,5 +145,47 @@ describe("Role-based guard (authorize middleware)", () => {
 
     expect(res.statusCode).toBe(201);
     expect(res.body.event.organizer).toBeDefined();
+  });
+});
+
+describe("Seeded users (same creation shape as seed.js)", () => {
+  // seed.js passes plaintext passwords to User.create([...]) and relies on
+  // the model's pre-save hook to hash them - never hashing itself. This pins
+  // that invariant: users created that way must log in through the normal
+  // /api/auth/login flow with the plaintext password declared in the seed.
+  const SEED_PASSWORD = "demo1234";
+
+  it("lets organizer and attendee users created via User.create([...]) log in with the seed password", async () => {
+    await User.create([
+      { name: "Seed Organizer", email: "organizer1@demo.eventhub.dev", password: SEED_PASSWORD, role: "organizer" },
+      { name: "Seed Attendee", email: "attendee1@demo.eventhub.dev", password: SEED_PASSWORD, role: "attendee" },
+    ]);
+
+    const orgRes = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "organizer1@demo.eventhub.dev", password: SEED_PASSWORD });
+    expect(orgRes.statusCode).toBe(200);
+    expect(orgRes.body.user.role).toBe("organizer");
+
+    const attRes = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "attendee1@demo.eventhub.dev", password: SEED_PASSWORD });
+    expect(attRes.statusCode).toBe(200);
+    expect(attRes.body.user.role).toBe("attendee");
+  });
+
+  it("stores a bcrypt hash (not the plaintext) and still rejects a wrong password", async () => {
+    await User.create([
+      { name: "Seed Organizer", email: "organizer1@demo.eventhub.dev", password: SEED_PASSWORD, role: "organizer" },
+    ]);
+
+    const stored = await User.findOne({ email: "organizer1@demo.eventhub.dev" }).select("+password");
+    expect(stored.password).not.toBe(SEED_PASSWORD);
+    expect(stored.password).toMatch(/^\$2[aby]\$\d{2}\$/);
+
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "organizer1@demo.eventhub.dev", password: "wrong-password" });
+    expect(res.statusCode).toBe(401);
   });
 });
