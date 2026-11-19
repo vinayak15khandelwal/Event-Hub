@@ -35,7 +35,7 @@ const ensureCollectionsExist = () =>
 const start = async () => {
   await connectDB();
   await ensureCollectionsExist();
-  server.listen(PORT, () => {
+  server.listen(PORT, "0.0.0.0", () => {
     console.log(`EventHub server running on port ${PORT}`);
     // Periodically releases seat holds past their 2-minute expiry and
     // notifies the affected event rooms in real time (Day 4 requirement).
